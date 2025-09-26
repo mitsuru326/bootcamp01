@@ -5,12 +5,6 @@ image:
 secretVolumes:
 - kong-cluster-cert
 
-proxy:
-  http:
-    enabled:true
-    servicePort:8000
-    container:8000
-
 admin:
   enabled: false
 
@@ -45,7 +39,7 @@ resources:
     memory: "2Gi"
 
 serviceMonitor:
-  enabled:true
+  enabled: true
   labels:
     release: prometheus
 
