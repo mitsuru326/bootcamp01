@@ -44,5 +44,11 @@ resources:
     cpu: 1
     memory: "2Gi"
 
+serviceMonitor:
+  enabled:true
+  labels:
+    relese: prometheus
+EOF
+
 manager:
   enabled: false
