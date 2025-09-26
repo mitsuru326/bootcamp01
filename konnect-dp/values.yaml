@@ -47,8 +47,7 @@ resources:
 serviceMonitor:
   enabled:true
   labels:
-    relese: prometheus
-EOF
+    release: prometheus
 
 manager:
   enabled: false
