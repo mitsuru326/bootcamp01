@@ -1,0 +1,60 @@
+name: Build and Deploy to AKS using GHCR
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Docker build & push to GHCR
+    - name: Log in to GHCR
+      run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+    - name: Build Docker image
+      run: |
+        IMAGE_NAME=ghcr.io/${{ secrets.REGISTRY_USERNAME }}/kong-gateway:20250926
+        docker build -t $IMAGE_NAME .
+        docker push $IMAGE_NAME
+
+    # Azure login
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # Set AKS context
+    - name: Set AKS context
+      run: |
+        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
+
+    # Setup kubectl
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+
+    # Setup Helm
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+
+    # Deploy to AKS using Helm
+    - name: Deploy to AKS
+      run: |
+        helm upgrade --install my-kong-kong-proxy ./helm-chart \
+          --namespace kong \
+          --create-namespace \
+          --set image.repository=ghcr.io/${{ secrets.REGISTRY_USERNAME }}/kong-gateway \
+          --set image.tag=latest
+
+    # Verify deployment
+    - name: Check pods
+      run: kubectl get pods -n aks-cluster
