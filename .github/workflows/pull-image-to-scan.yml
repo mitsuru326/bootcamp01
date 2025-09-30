@@ -148,6 +148,7 @@ jobs:
       packages: write      # ← ここで付与（呼び出し側で指定できる）
     with:
       image_tag: ${{ inputs.image_tag }}                 # 例: latest
-      source_image_repo: ${{ env.IMAGE_REPO }}           # 例: kong/kong-gateway
-      # ghcr_image を明示したい場合は下記を有効化（デフォルトは ghcr.io/<owner>/kong-gateway:<tag>）
+      source_image_repo: kong/kong-gateway
+      # ghcr_image を明示したい場合は下記を有効化（デフォルトはghcr.io/<owner>/kong-gateway:<tag> ）
+      # ghcr_image: ghcr.io/${{ github.repository_owner }}/kong-gateway:${{ inputs.image_tag }}
 
