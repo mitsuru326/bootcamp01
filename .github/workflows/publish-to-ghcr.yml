@@ -1,0 +1,75 @@
+name: "Publish image to GHCR (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: "Tag to publish (e.g. latest or 3.7.1.0-alpine)"
+        required: true
+        type: string
+      source_image_repo:
+        description: "Source image repo (e.g. kong/kong-gateway)"
+        required: true
+        type: string
+      ghcr_image:
+        description: "Full GHCR image ref to push (e.g. ghcr.io/OWNER/kong-gateway:TAG). If empty, defaults to ghcr.io/<owner>/kong-gateway:<tag>"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      published_image:
+        description: "Published GHCR image (name:tag)"
+        value: ${{ jobs.publish.outputs.published_image }}
+
+jobs:
+  publish:
+    name: "Retag & push to GHCR"
+    runs-on: ubuntu-latest
+
+    # GHCR へ publish するには packages: write が必要
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      published_image: ${{ steps.out.outputs.image }}
+
+    env:
+      REPO_OWNER: ${{ github.repository_owner }}
+
+    steps:
+      - name: Log in to GHCR
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # ↑ GHCR は Actions の GITHUB_TOKEN で publish 可能（workflow repo に関連するパッケージ）
+      #    かつ permissions: packages: write が必要です。[3](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)[4](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)[5](https://stackoverflow.com/questions/70646920/github-token-permission-denied-write-package-when-build-and-push-docker-in-githu)
+
+      - name: Pull source image
+        run: |
+          SRC="${{ inputs.source_image_repo }}:${{ inputs.image_tag }}"
+          echo "Pulling ${SRC} ..."
+          docker pull "${SRC}"
+
+      - name: Tag for GHCR
+        id: tag
+        run: |
+          SRC="${{ inputs.source_image_repo }}:${{ inputs.image_tag }}"
+          # 入力に ghcr_image が指定されていなければ <owner>/kong-gateway:<tag> をデフォルトにする
+          if [ -z "${{ inputs.ghcr_image }}" ]; then
+            TARGET="ghcr.io/${REPO_OWNER}/kong-gateway:${{ inputs.image_tag }}"
+          else
+            TARGET="${{ inputs.ghcr_image }}"
+          fi
+          echo "Tagging ${SRC} -> ${TARGET}"
+          docker tag "${SRC}" "${TARGET}"
+          echo "TARGET=${TARGET}" >> "$GITHUB_ENV"
+
+      - name: Push to GHCR
+        run: |
+          echo "Pushing ${TARGET} ..."
+          docker push "${TARGET}"
+
+      - name: Set output
+        id: out
+        run: |
+          echo "image=${TARGET}" >> "$GITHUB_OUTPUT"
