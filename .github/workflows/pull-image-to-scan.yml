@@ -113,13 +113,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-table.txt >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-      # SARIF を Code Scanning にアップロード（Security タブに表示されます）
-      - name: Upload SARIF to code scanning
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
           
       # === 全成果物をまとめて保存（ファイルが無くても無視）
       - name: Upload artifacts (all severities)
