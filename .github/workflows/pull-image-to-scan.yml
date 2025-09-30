@@ -73,7 +73,9 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           vuln-type: 'os,library'
-          exit-code: ${{ inputs.fail_on_severity == 'true' && '1' || '0' }}
+          limit-severities-for-sarif: true
+          exit-code: '0'
+          
       - name: Trivy scan (JSON report)
         if: always() # 失敗時でも JSON を残す
         uses: aquasecurity/trivy-action@0.24.0
@@ -85,7 +87,8 @@ jobs:
           format: 'json'
           output: 'trivy-results.json'
           vuln-type: 'os,library'
-          exit-code: '0'
+          exit-code: ${{ inputs.fail_on_severity == 'true' && '1' || '0' }}
+
 
       # 2) Job サマリー用の表を出す（人が見やすい）
       - name: Trivy scan (table for job summary)
