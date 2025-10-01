@@ -147,7 +147,7 @@ jobs:
       # ghcr_image を明示したい場合は下記を有効化（デフォルトはghcr.io/<owner>/kong-gateway:<tag> ）
       # ghcr_image: ghcr.io/${{ github.repository_owner }}/kong-gateway:${{ inputs.image_tag }}
 
-deploy:
+  deploy:
     name: "Deploy to AKS (Konnect Data Plane)"
     needs: publish
     if: ${{ needs.publish.result == 'success' }}  # push 成功時のみ
