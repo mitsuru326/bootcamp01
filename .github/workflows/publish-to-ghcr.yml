@@ -1,10 +1,10 @@
-name: "Publish image to GHCR (reusable)"
+name: "Publish image to GHCR"
 
 on:
   workflow_call:
     inputs:
       image_tag:
-        description: "Tag to publish (e.g. latest or 3.7.1.0-alpine)"
+        description: "Tag to publish (e.g. latest or 3.11)"
         required: true
         type: string
       source_image_repo:
