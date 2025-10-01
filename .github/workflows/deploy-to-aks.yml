@@ -1,0 +1,255 @@
+name: "Deploy GHCR image to AKS (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      ghcr_image:
+        description: "Full image ref to deploy (e.g. ghcr.io/OWNER/kong-gateway:TAG)"
+        required: true
+        type: string
+      # AKS 接続情報
+      resource_group:
+        description: "AKS resource group name"
+        required: true
+        type: string
+      cluster_name:
+        description: "AKS cluster name"
+        required: true
+        type: string
+      # 既存の Kong DP Deployment/Namespace/コンテナ名
+      namespace:
+        description: "Kubernetes namespace"
+        required: false
+        default: "kong"
+        type: string
+      deployment_name:
+        description: "Kong DP Deployment name"
+        required: false
+        default: "kong"
+        type: string
+      container_name:
+        description: "Container name in the Deployment"
+        required: false
+        default: "proxy"
+        type: string
+      # Private GHCR のときだけ true にする
+      create_pull_secret:
+        description: "Create/Update docker-registry Secret for GHCR"
+        required: false
+        default: "true"
+        type: string
+      pull_secret_name:
+        description: "Name of the imagePullSecret in the namespace"
+        required: false
+        default: "ghcr-pull-secret"
+        type: string
+    secrets:
+      AZURE_CREDENTIALS:
+        required: true
+      # private pull 時のみ設定（PAT: read:packages）
+      GHCR_USERNAME:
+        required: false
+      GHCR_TOKEN:
+        required: false
+
+permissions:
+  id-token: write  # OIDC で Azure にログイン
+  contents: read
+
+jobs:
+  deploy:
+    name: "Set image & rollout"
+    runs-on: ubuntu-latest
+    env:
+      KONNECT_API: https://us.api.konghq.com/v2
+
+    steps:
+   
+      - name: "Azure login"
+        uses: azure/login@v1.4.3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: "Set AKS context"
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ inputs.resource_group }}
+          cluster-name:   ${{ inputs.cluster_name }}
+
+      - name: "Create/Update GHCR pull secret (optional)"
+        if: ${{ inputs.create_pull_secret == 'true' }}
+        run: |
+          kubectl -n "${{ inputs.namespace }}" delete secret "${{ inputs.pull_secret_name }}" --ignore-not-found
+          kubectl -n "${{ inputs.namespace }}" create secret docker-registry "${{ inputs.pull_secret_name }}" \
+            --docker-server=ghcr.io \
+            --docker-username="${{ secrets.GHCR_USERNAME }}" \
+            --docker-password="${{ secrets.GHCR_TOKEN }}" \
+            --docker-email="noreply@example.com"
+        # ↑ Kubernetes の docker-registry Secret 作成。[8](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_docker-registry/)
+
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq openssl
+
+      - name: Get Control Plane ID and upload TLS certs
+        id: get_cp
+        run: |
+          CP_ID=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}" \
+            "${KONNECT_API}/control-planes" \
+            | jq -r --arg name "${{ vars.CP_NAME }}" '.data[] | select(.name==$name) | .id')
+          mkdir certs
+          openssl req -new -x509 -nodes -newkey rsa:2048 \
+            -subj "/CN=kongdp/C=US" \
+            -keyout ./certs/tls.key -out ./certs/tls.crt -days 3650
+          export CERT=$(awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' ./certs/tls.crt)
+          curl -sX POST \
+            -H "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}" \
+            ${KONNECT_API}/control-planes/${CP_ID}/dp-client-certificates \
+            --json '{"cert":"'"$CERT"'"}'
+          CP_ENDPOINT=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}" \
+            "${KONNECT_API}/control-planes/${CP_ID}" \
+            | jq -r '.config.control_plane_endpoint')
+          CP_ENDPOINT=$(sed "s@https://@@" <<< $CP_ENDPOINT)
+          TP_ENDPOINT=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}" \
+            "${KONNECT_API}/control-planes/${CP_ID}" \
+            | jq -r '.config.telemetry_endpoint')
+          TP_ENDPOINT=$(sed "s@https://@@" <<< $TP_ENDPOINT)
+          echo "tp_endpoint=$TP_ENDPOINT" >> "$GITHUB_OUTPUT"
+          echo "cp_endpoint=$CP_ENDPOINT" >> "$GITHUB_OUTPUT"
+
+      - name: Create Kubernetes namespace and TLS secret
+        run: |
+          kubectl create ns "${{ inputs.namespace }}" || true
+          kubectl create secret tls kong-cluster-cert -n "${{ inputs.namespace }}" \
+            --cert=./certs/tls.crt \
+            --key=./certs/tls.key \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: "Patch imagePullSecrets to ServiceAccount (optional)"
+        if: ${{ inputs.create_pull_secret == 'true' }}
+        run: |
+          # 既定の default SA に imagePullSecrets を足す（必要なら専用SAへ変更）
+          kubectl -n "${{ inputs.namespace }}" patch serviceaccount default \
+            -p "{\"imagePullSecrets\": [{\"name\": \"${{ inputs.pull_secret_name }}\"}]}" \
+            --type=merge || true
+        # ※ 既存 Deployment 側に imagePullSecrets が設定済みならこのパッチは不要です。
+        #   Private pull の一般的なやり方を参考として提示。[9](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
+
+      - name: Generate values.yaml (from ghcr_image)
+        run: |
+          set -euo pipefail
+
+          IMG="${{ inputs.ghcr_image }}"
+
+          REPO=""
+          TAG=""
+          DIGEST=""
+
+           if [[ "$IMG" == *"@"* ]]; then
+             # 例) ghcr.io/owner/kong-gateway@sha256:abcdef...
+             REPO="${IMG%@*}"
+             DIGEST="${IMG#*@}"
+           elif [[ "$IMG" == *":"* ]]; then
+             # 例) ghcr.io/owner/kong-gateway:3.11
+             TAG="${IMG##*:}"
+             REPO="${IMG%:*}"
+           else
+             # タグ未指定の場合は latest を既定に
+             REPO="$IMG"
+             TAG="latest"
+           fi
+
+           echo "Resolved image:"
+           echo "  repository: $REPO"
+           if [[ -n "$DIGEST" ]]; then
+             echo "  digest    : $DIGEST"
+           else
+             echo "  tag       : $TAG"
+           fi
+
+           # values.yaml を生成
+           # digest 指定の時は image.digest を、tag 指定の時は image.tag を出力
+           cat > ./values.yaml <<EOF
+           image:
+             repository: ${REPO}
+           EOF
+
+           if [[ -n "$DIGEST" ]]; then
+             echo "  digest: \"${DIGEST}\"" >> ./values.yaml
+           else
+             echo "  tag: ${TAG}" >> ./values.yaml
+           fi
+
+           cat >> ./values.yaml <<EOF
+             pullSecrets:
+               - ghcr-secret
+
+           secretVolumes:
+             - kong-cluster-cert
+
+           admin:
+             enabled: false
+
+           env:
+             role: data_plane
+             database: "off"
+             cluster_mtls: pki
+             cluster_control_plane: ${{ steps.get_cp.outputs.cp_endpoint }}:443
+             cluster_server_name: ${{ steps.get_cp.outputs.cp_endpoint }}
+             cluster_telemetry_endpoint: ${{ steps.get_cp.outputs.tp_endpoint }}:443
+             cluster_telemetry_server_name: ${{ steps.get_cp.outputs.tp_endpoint }}
+             cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
+             cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key
+             lua_ssl_trusted_certificate: system
+             konnect_mode: "on"
+             vitals: "off"
+             nginx_worker_processes: "1"
+             upstream_keepalive_max_requests: "100000"
+             nginx_http_keepalive_requests: "100000"
+             proxy_access_log: "off"
+             dns_stale_ttl: "3600"
+             router_flavor: expressions
+
+           ingressController:
+             enabled: false
+             installCRDs: false
+
+           resources:
+             requests:
+               cpu: 1
+               memory: "2Gi"
+           EOF
+
+           echo "----- values.yaml -----"
+           cat ./values.yaml
+
+      - name: Deploy with Helm
+        run: |
+          helm repo add kong https://charts.konghq.com
+          helm repo update
+          helm upgrade -i "${{ inputs.deployment_name }}" kong/kong -n "${{ inputs.namespace }}" --values ./values.yaml --debug --wait
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kong-dp-config
+          path: |
+            ./values.yaml
+            ./certs/tls.crt
+            ./certs/tls.key
+            
+      - name: "Wait for rollout"
+        run: |
+          kubectl -n "${{ inputs.namespace }}" rollout status \
+            deployment/${{ inputs.deployment_name }} --timeout=10m
+        # ↑ ローリング更新が完了するまで待機（readiness 成功まで）。[11](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/)[12](https://stackoverflow.com/questions/68540187/kubectl-rollout-status-when-the-command-complete)
+
+      - name: "Show pods"
+        if: always()
+        run: |
+          kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }} -o wide
+          kubectl -n "${{ inputs.namespace }}" get pods -o wide --sort-by=.metadata.creationTimestamp
