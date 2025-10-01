@@ -168,3 +168,4 @@ jobs:
       # private pull 時のみ使用（PAT: read:packages を推奨）
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN:    ${{ secrets.GHCR_TOKEN }}
+      KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
