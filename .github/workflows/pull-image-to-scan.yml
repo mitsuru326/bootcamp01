@@ -89,7 +89,6 @@ jobs:
           vuln-type: 'os,library'
           exit-code: ${{ inputs.fail_on_severity == 'true' && '1' || '0' }}
 
-
       # 2) Job サマリー用の表を出す（人が見やすい）
       - name: Trivy scan (table for job summary)
         if: always()
@@ -114,18 +113,6 @@ jobs:
           cat trivy-table.txt >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
           
-      # === 全成果物をまとめて保存（ファイルが無くても無視）
-      - name: Upload artifacts (all severities)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-${{ inputs.image_tag }}-by-severity
-          path: |
-            trivy-*.sarif
-            trivy-*.json
-          if-no-files-found: ignore
-
-
       # 生成物をアーティファクトとして保存
       - name: Upload artifacts
         if: always()
