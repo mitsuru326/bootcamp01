@@ -15,6 +15,14 @@ on:
         description: "Return non-zero (fail the job) if vulnerabilities at/above severity are found"
         required: true
         default: "true"   # "true" or "false"
+      env:
+        description: "Deployment environment identifier (e.g., poc, dev, stg, prd)"
+        required: true
+        default: "poc"
+      service:
+        description: "Service or application name associated with this Data Plane (e.g., bookinfo)"
+        required: true
+        default: "bookinfo"
 
 permissions:
   contents: read
@@ -139,3 +147,24 @@ jobs:
       # ghcr_image を明示したい場合は下記を有効化（デフォルトはghcr.io/<owner>/kong-gateway:<tag> ）
       # ghcr_image: ghcr.io/${{ github.repository_owner }}/kong-gateway:${{ inputs.image_tag }}
 
+deploy:
+    name: "Deploy to AKS (Konnect Data Plane)"
+    needs: publish
+    if: ${{ needs.publish.result == 'success' }}  # push 成功時のみ
+    uses: ./.github/workflows/deploy-to-aks.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      ghcr_image: ${{ needs.publish.outputs.published_image }}
+      resource_group: RD-Communication
+      cluster_name: kong-bootcamp01
+      namespace: kong-${{ inputs.env }}-${{ inputs.service }}
+      deployment_name: kong-dp-${{ inputs.env }}-${{ inputs.service }}
+      container_name: proxy
+      create_pull_secret: "true"                  # Private GHCR の場合は "true"
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      # private pull 時のみ使用（PAT: read:packages を推奨）
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_TOKEN:    ${{ secrets.GHCR_TOKEN }}
