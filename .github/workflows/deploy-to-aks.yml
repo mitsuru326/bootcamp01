@@ -177,7 +177,7 @@ jobs:
           # 1) 先にプレースホルダ込みで YAML 全体を書き出す（cat <<EOF）
           cat > ./values.yaml <<EOF
           image:
-            repository: ${REPO}
+            repository: __IMAGE_REPO__
           __IMAGE_TAG_OR_DIGEST__
             pullSecrets:
               - ghcr-secret
@@ -226,7 +226,10 @@ jobs:
             enabled: false
           EOF
 
-          # 2) プレースホルダを tag または digest に置換（インデントを崩さない）
+          # 2) プレースホルダを tag または digest に置換（インデントを崩さない）          
+          # repository
+          sed -i "s|__IMAGE_REPO__|${REPO}|g" ./values.yaml
+          # tag または digest を必ず文字列で挿入
           if [[ -n "$DIGEST" ]]; then
             # ダイジェストはコロンを含むため YAML では引用する
             sed -i "s|__IMAGE_TAG_OR_DIGEST__|  digest: \"${DIGEST}\"|g" ./values.yaml
