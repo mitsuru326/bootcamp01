@@ -225,6 +225,11 @@ jobs:
              requests:
                cpu: 1
                memory: "2Gi"
+
+           serviceMonitor:
+             enabled: true
+             labels:
+             release: prometheus
            EOF
 
            echo "----- values.yaml -----"
