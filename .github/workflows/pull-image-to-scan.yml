@@ -39,27 +39,53 @@ env:
 jobs:
   scan:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ "linux/amd64", "linux/arm64" ]
+
     steps:
       - name: Checkout (optional)
         uses: actions/checkout@v4
 
       - name: (Optional) Docker Hub login
-        
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Resolve platform digest (manifest list → digest)
+        id: digest
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+          IMAGE_REPO: ${{ env.IMAGE_REPO }}
+          IMAGE_TAG:  ${{ inputs.image_tag }}
+          PLATFORM:   ${{ matrix.platform }}
         run: |
-          echo "${{ env.DOCKERHUB_TOKEN }}" | docker login -u "${{ env.DOCKERHUB_USERNAME }}" --password-stdin
+          set -euo pipefail
+          IMAGE="${IMAGE_REPO}:${IMAGE_TAG}"
 
-      - name: Pull image
-        run: |
-          IMAGE="${{ env.IMAGE_REPO }}:${{ inputs.image_tag }}"
-          echo "Pulling ${IMAGE}..."
-          docker pull "${IMAGE}"
-          echo "Pulled: "
-          docker images | grep "${{ env.IMAGE_REPO }}" || true
+          echo "Resolving digest for ${IMAGE} (${PLATFORM}) ..."
+          # manifest list を取得し、指定プラットフォームの digest を抽出
+          RAW=$(docker manifest inspect "${IMAGE}")
+          if [ -z "${RAW}" ]; then
+            echo "Failed to fetch manifest list for ${IMAGE}"
+            exit 1
+          fi
+
+          # .platform.os + "/" + .platform.architecture が "linux/amd64" 等に一致する要素の digest を抽出
+          DIGEST=$(echo "${RAW}" | jq -r --arg plat "${PLATFORM}" '.manifests[] | select((.platform.os + "/" + .platform.architecture) == $plat) .digest')
+
+          if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
+            echo "Could not resolve digest for ${PLATFORM}. Available manifests are:"
+            echo "${RAW}" | jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)  \(.digest)"'
+            exit 1
+          fi
+
+          IMAGE_DIGEST="${IMAGE_REPO}@${DIGEST}"
+          echo "Resolved: ${IMAGE_DIGEST}"
+
+          echo "image_ref=${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "plat_tag=$(echo "${PLATFORM}" | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
       # Trivy DB キャッシュ（高速化）
       - name: Cache Trivy DB
@@ -70,69 +96,70 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-trivy-db
 
-      # 1) SARIF/JSON を作る（CI やレポート用途）
-      - name: Trivy scan (SARIF/JSON)
-        uses: aquasecurity/trivy-action@0.24.0
+      # 1) SARIF（可視化専用、常に成功）
+      - name: Trivy scan (SARIF for ${{ matrix.platform }})
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
-          image-ref: ${{ env.IMAGE_REPO }}:${{ inputs.image_tag }}
+          image-ref: ${{ steps.digest.outputs.image_ref }}
           severity: ${{ inputs.severity }}
           ignore-unfixed: true
           format: 'sarif'
-          output: 'trivy-results.sarif'
+          output: trivy-results-${{ steps.digest.outputs.plat_tag }}.sarif
           vuln-type: 'os,library'
           limit-severities-for-sarif: true
           exit-code: '0'
-          
-      - name: Trivy scan (JSON report)
-        if: always() # 失敗時でも JSON を残す
-        uses: aquasecurity/trivy-action@0.24.0
+
+      # 2) JSON（ゲート：CRITICAL/HIGH で失敗可）
+      - name: Trivy scan (JSON report for ${{ matrix.platform }})
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
-          image-ref: ${{ env.IMAGE_REPO }}:${{ inputs.image_tag }}
+          image-ref: ${{ steps.digest.outputs.image_ref }}
           severity: ${{ inputs.severity }}
           ignore-unfixed: true
           format: 'json'
-          output: 'trivy-results.json'
+          output: trivy-results-${{ steps.digest.outputs.plat_tag }}.json
           vuln-type: 'os,library'
           exit-code: ${{ inputs.fail_on_severity == 'true' && '1' || '0' }}
 
-      # 2) Job サマリー用の表を出す（人が見やすい）
-      - name: Trivy scan (table for job summary)
+      # 3) Table（サマリー用）
+      - name: Trivy scan (table for ${{ matrix.platform }})
         if: always()
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
-          image-ref: ${{ env.IMAGE_REPO }}:${{ inputs.image_tag }}
+          image-ref: ${{ steps.digest.outputs.image_ref }}
           severity: ${{ inputs.severity }}
           ignore-unfixed: true
           format: 'table'
-          output: 'trivy-table.txt'
+          output: trivy-table-${{ steps.digest.outputs.plat_tag }}.txt
           vuln-type: 'os,library'
           exit-code: '0'
-      - name: Append summary
+
+      - name: Append summary (${{ matrix.platform }})
         if: always()
         run: |
-          echo "## Trivy scan summary for ${{ env.IMAGE_REPO }}:${{ inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Trivy scan summary for ${{ env.IMAGE_REPO }}:${{ inputs.image_tag }} (${{ matrix.platform }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '閾値（severity）: `${{ inputs.severity }}` / Fail: `${{ inputs.fail_on_severity }}`' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat trivy-table.txt >> $GITHUB_STEP_SUMMARY || true
+          cat trivy-table-${{ steps.digest.outputs.plat_tag }}.txt >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-          
-      # 生成物をアーティファクトとして保存
-      - name: Upload artifacts
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      # 4) 生成物をアーティファクトとして保存
+      - name: Upload artifacts (${{ matrix.platform }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-${{ inputs.image_tag }}
+          name: trivy-${{ inputs.image_tag }}-${{ steps.digest.outputs.plat_tag }}
           path: |
-            trivy-results.sarif
-            trivy-results.json
-            trivy-table.txt
+            trivy-results-${{ steps.digest.outputs.plat_tag }}.sarif
+            trivy-results-${{ steps.digest.outputs.plat_tag }}.json
+            trivy-table-${{ steps.digest.outputs.plat_tag }}.txt
           if-no-files-found: ignore
-
   publish:
     name: "Publish to GHCR (only if scan passed)"
     needs: scan
