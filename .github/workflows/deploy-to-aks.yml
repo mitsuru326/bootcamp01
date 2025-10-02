@@ -53,6 +53,16 @@ on:
         required: false
       KONNECT_TOKEN:
         required: true
+    outputs:
+      dp_external_ip:
+        description: "Kong DP Service EXTERNAL-IP (if assigned)"
+        value: ${{ jobs.deploy.outputs.dp_external_ip }}
+      dp_external_hostname:
+        description: "Kong DP Service external hostname (if any)"
+        value: ${{ jobs.deploy.outputs.dp_external_hostname }}
+      dp_service_name:
+        description: "Kong DP Service name"
+        value: ${{ jobs.deploy.outputs.dp_service_name }}
 
 permissions:
   id-token: write  # OIDC で Azure にログイン
@@ -325,3 +335,8 @@ jobs:
           echo "- Hostname   : \`${{ steps.dp_endpoint.outputs.external_hostname }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "> 備考: EXTERNAL-IP は Service の \`.status.loadBalancer.ingress[0].ip\` に割当てられます（AKS の LoadBalancer 連携）。" >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      dp_external_ip:       ${{ steps.dp_endpoint.outputs.external_ip }}
+      dp_external_hostname: ${{ steps.dp_endpoint.outputs.external_hostname }}
+      dp_service_name:      ${{ steps.dp_endpoint.outputs.service_name }}
