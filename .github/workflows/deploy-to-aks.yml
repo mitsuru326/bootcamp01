@@ -279,7 +279,7 @@ jobs:
           kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }}-kong -o wide
           kubectl -n "${{ inputs.namespace }}" get pods -o wide --sort-by=.metadata.creationTimestamp
 
-      - name: Resolve DP global endpoint (Service EXTERNAL-IP / hostname)
+      - name: Resolve DP global endpoint (Service EXTERNAL-IP)
         id: dp_endpoint
         run: |
           set -euo pipefail
@@ -323,18 +323,6 @@ jobs:
           echo "external_ip=${IP}" >> "$GITHUB_OUTPUT"
           echo "external_hostname=${HOST}" >> "$GITHUB_OUTPUT"
           echo "service_name=${SVC}" >> "$GITHUB_OUTPUT"
-
-      - name: Append DP endpoint to Job Summary
-        if: always()
-        run: |
-          echo "## Kong DP Global Endpoint" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Namespace  : \`${{ inputs.namespace }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Service    : \`${{ steps.dp_endpoint.outputs.service_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- EXTERNAL-IP: \`${{ steps.dp_endpoint.outputs.external_ip }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Hostname   : \`${{ steps.dp_endpoint.outputs.external_hostname }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> 備考: EXTERNAL-IP は Service の \`.status.loadBalancer.ingress[0].ip\` に割当てられます（AKS の LoadBalancer 連携）。" >> $GITHUB_STEP_SUMMARY
 
     outputs:
       dp_external_ip:       ${{ steps.dp_endpoint.outputs.external_ip }}
