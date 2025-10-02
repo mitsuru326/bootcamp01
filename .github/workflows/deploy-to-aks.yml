@@ -269,7 +269,6 @@ jobs:
           kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }}-kong -o wide
           kubectl -n "${{ inputs.namespace }}" get pods -o wide --sort-by=.metadata.creationTimestamp
 
-      # （Helm のデプロイ／rollout 完了の “後ろ” に置いてください）
       - name: Resolve DP global endpoint (Service EXTERNAL-IP / hostname)
         id: dp_endpoint
         run: |
