@@ -181,6 +181,7 @@ jobs:
           __IMAGE_TAG_OR_DIGEST__
             pullSecrets:
               - ${{ inputs.pull_secret_name }}
+            pullPolicy: Always
 
           secretVolumes:
             - kong-cluster-cert
