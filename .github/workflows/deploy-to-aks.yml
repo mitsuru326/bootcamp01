@@ -41,7 +41,7 @@ on:
       pull_secret_name:
         description: "Name of the imagePullSecret in the namespace"
         required: false
-        default: "ghcr-pull-secret"
+        default: "ghcr-secret"
         type: string
     secrets:
       AZURE_CREDENTIALS:
