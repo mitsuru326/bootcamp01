@@ -152,88 +152,90 @@ jobs:
           TAG=""
           DIGEST=""
 
-           if [[ "$IMG" == *"@"* ]]; then
-             # 例) ghcr.io/owner/kong-gateway@sha256:abcdef...
-             REPO="${IMG%@*}"
-             DIGEST="${IMG#*@}"
-           elif [[ "$IMG" == *":"* ]]; then
-             # 例) ghcr.io/owner/kong-gateway:3.11
-             TAG="${IMG##*:}"
-             REPO="${IMG%:*}"
-           else
-             # タグ未指定の場合は latest を既定に
-             REPO="$IMG"
-             TAG="latest"
-           fi
+          if [[ "$IMG" == *"@"* ]]; then
+            # 例) ghcr.io/owner/kong-gateway@sha256:abcdef...
+            REPO="${IMG%@*}"
+            DIGEST="${IMG#*@}"
+          elif [[ "$IMG" == *":"* ]]; then
+            # 例) ghcr.io/owner/kong-gateway:3.11
+            TAG="${IMG##*:}"
+            REPO="${IMG%:*}"
+          else
+            # タグ未指定の場合は latest を既定に
+            REPO="$IMG"
+            TAG="latest"
+          fi
 
-           echo "Resolved image:"
-           echo "  repository: $REPO"
-           if [[ -n "$DIGEST" ]]; then
-             echo "  digest    : $DIGEST"
-           else
-             echo "  tag       : $TAG"
-           fi
+          echo "Resolved image:"
+          echo "  repository: $REPO"
+          if [[ -n "$DIGEST" ]]; then
+            echo "  digest    : $DIGEST"
+          else
+            echo "  tag       : $TAG"
+          fi
 
-           # values.yaml を生成
-           # digest 指定の時は image.digest を、tag 指定の時は image.tag を出力
-           cat > ./values.yaml <<EOF
-           image:
-             repository: ${REPO}
-           EOF
+          # 1) 先にプレースホルダ込みで YAML 全体を書き出す（cat <<EOF）
+          cat > ./values.yaml <<EOF
+          image:
+            repository: ${REPO}
+          __IMAGE_TAG_OR_DIGEST__
+            pullSecrets:
+              - ghcr-secret
 
-           if [[ -n "$DIGEST" ]]; then
-             echo "  digest: \"${DIGEST}\"" >> ./values.yaml
-           else
-             echo "  tag: ${TAG}" >> ./values.yaml
-           fi
+          secretVolumes:
+            - kong-cluster-cert
 
-           cat >> ./values.yaml <<EOF
-             pullSecrets:
-               - ghcr-secret
+          admin:
+            enabled: false
 
-           secretVolumes:
-             - kong-cluster-cert
+          env:
+            role: data_plane
+            database: "off"
+            cluster_mtls: pki
+            cluster_control_plane: ${{ steps.get_cp.outputs.cp_endpoint }}:443
+            cluster_server_name: ${{ steps.get_cp.outputs.cp_endpoint }}
+            cluster_telemetry_endpoint: ${{ steps.get_cp.outputs.tp_endpoint }}:443
+            cluster_telemetry_server_name: ${{ steps.get_cp.outputs.tp_endpoint }}
+            cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
+            cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key
+            lua_ssl_trusted_certificate: system
+            konnect_mode: "on"
+            vitals: "off"
+            nginx_worker_processes: "1"
+            upstream_keepalive_max_requests: "100000"
+            nginx_http_keepalive_requests: "100000"
+            proxy_access_log: "off"
+            dns_stale_ttl: "3600"
+            router_flavor: expressions
 
-           admin:
-             enabled: false
+          ingressController:
+            enabled: false
+            installCRDs: false
 
-           env:
-             role: data_plane
-             database: "off"
-             cluster_mtls: pki
-             cluster_control_plane: ${{ steps.get_cp.outputs.cp_endpoint }}:443
-             cluster_server_name: ${{ steps.get_cp.outputs.cp_endpoint }}
-             cluster_telemetry_endpoint: ${{ steps.get_cp.outputs.tp_endpoint }}:443
-             cluster_telemetry_server_name: ${{ steps.get_cp.outputs.tp_endpoint }}
-             cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
-             cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key
-             lua_ssl_trusted_certificate: system
-             konnect_mode: "on"
-             vitals: "off"
-             nginx_worker_processes: "1"
-             upstream_keepalive_max_requests: "100000"
-             nginx_http_keepalive_requests: "100000"
-             proxy_access_log: "off"
-             dns_stale_ttl: "3600"
-             router_flavor: expressions
+          resources:
+            requests:
+              cpu: 1
+              memory: "2Gi"
 
-           ingressController:
-             enabled: false
-             installCRDs: false
+          serviceMonitor:
+            enabled: true
+            labels:
+              release: prometheus
 
-           resources:
-             requests:
-               cpu: 1
-               memory: "2Gi"
+          manager:
+            enabled: false
+          EOF
 
-           serviceMonitor:
-             enabled: true
-             labels:
-             release: prometheus
-           EOF
+          # 2) プレースホルダを tag または digest に置換（インデントを崩さない）
+          if [[ -n "$DIGEST" ]]; then
+            # ダイジェストはコロンを含むため YAML では引用する
+            sed -i "s|__IMAGE_TAG_OR_DIGEST__|  digest: \"${DIGEST}\"|g" ./values.yaml
+          else
+            sed -i "s|__IMAGE_TAG_OR_DIGEST__|  tag: ${TAG}|g" ./values.yaml
+          fi
 
-           echo "----- values.yaml -----"
-           cat ./values.yaml
+          echo "----- values.yaml -----"
+          cat ./values.yaml
 
       - name: Deploy with Helm
         run: |
