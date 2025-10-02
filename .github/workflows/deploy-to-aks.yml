@@ -266,5 +266,5 @@ jobs:
       - name: "Show pods"
         if: always()
         run: |
-          kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }} -o wide
+          kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }}-kong -o wide
           kubectl -n "${{ inputs.namespace }}" get pods -o wide --sort-by=.metadata.creationTimestamp
