@@ -232,9 +232,9 @@ jobs:
           # tag または digest を必ず文字列で挿入
           if [[ -n "$DIGEST" ]]; then
             # ダイジェストはコロンを含むため YAML では引用する
-            sed -i "s|__IMAGE_TAG_OR_DIGEST__|  digest: \"${DIGEST}\"|g" ./values.yaml
+            sed -i 's|__IMAGE_TAG_OR_DIGEST__|  digest: "'"$DIGEST"'"|g' ./values.yaml
           else
-            sed -i "s|__IMAGE_TAG_OR_DIGEST__|  tag: ${TAG}|g" ./values.yaml
+            sed -i 's|__IMAGE_TAG_OR_DIGEST__|  tag: "'"$TAG"'"|g' ./values.yaml
           fi
 
           echo "----- values.yaml -----"
