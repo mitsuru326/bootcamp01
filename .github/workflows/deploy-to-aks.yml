@@ -259,9 +259,10 @@ jobs:
       - name: "Wait for rollout"
         run: |
           kubectl -n "${{ inputs.namespace }}" rollout status \
-            deployment/${{ inputs.deployment_name }} --timeout=10m
+            deployment/${{ inputs.deployment_name }}-kong \
+            --timeout=10m
         # ↑ ローリング更新が完了するまで待機（readiness 成功まで）。[11](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/)[12](https://stackoverflow.com/questions/68540187/kubectl-rollout-status-when-the-command-complete)
-
+        
       - name: "Show pods"
         if: always()
         run: |
