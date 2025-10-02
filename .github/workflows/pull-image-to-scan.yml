@@ -200,3 +200,26 @@ jobs:
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+
+  show-endpoint:
+    name: "Show DP Global Endpoint"
+    needs: deploy
+    if: ${{ needs.deploy.result == 'success' }}   # デプロイ成功時のみ
+    runs-on: ubuntu-latest
+    steps:
+      - name: Append endpoint to Job Summary
+        run: |
+          echo "## Kong DP Global Endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace      : \`kong-${{ inputs.env }}-${{ inputs.service }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Service        : \`${{ needs.deploy.outputs.dp_service_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- EXTERNAL-IP    : \`${{ needs.deploy.outputs.dp_external_ip }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- External Host  : \`${{ needs.deploy.outputs.dp_external_hostname }}\`" >> $GITHUB_STEP_SUMMARY
+
+          # 便利表示（URL候補）
+          HOST="${{ needs.deploy.outputs.dp_external_ip }}"
+          [ -z "$HOST" ] && HOST="${{ needs.deploy.outputs.dp_external_hostname }}"
+          if [ -n "$HOST" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Try:**  \`curl -i https://$HOST\`" >> $GITHUB_STEP_SUMMARY
+          fi
