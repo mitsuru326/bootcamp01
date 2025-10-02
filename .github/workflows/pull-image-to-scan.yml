@@ -214,7 +214,6 @@ jobs:
           echo "- Namespace      : \`kong-${{ inputs.env }}-${{ inputs.service }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Service        : \`${{ needs.deploy.outputs.dp_service_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- EXTERNAL-IP    : \`${{ needs.deploy.outputs.dp_external_ip }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- External Host  : \`${{ needs.deploy.outputs.dp_external_hostname }}\`" >> $GITHUB_STEP_SUMMARY
 
           # 便利表示（URL候補）
           HOST="${{ needs.deploy.outputs.dp_external_ip }}"
