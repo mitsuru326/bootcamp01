@@ -81,6 +81,7 @@ jobs:
       - name: "Create/Update GHCR pull secret (optional)"
         if: ${{ inputs.create_pull_secret == 'true' }}
         run: |
+          kubectl create namespace "${{ inputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f 
           kubectl -n "${{ inputs.namespace }}" delete secret "${{ inputs.pull_secret_name }}" --ignore-not-found
           kubectl -n "${{ inputs.namespace }}" create secret docker-registry "${{ inputs.pull_secret_name }}" \
             --docker-server=ghcr.io \
