@@ -180,7 +180,7 @@ jobs:
             repository: __IMAGE_REPO__
           __IMAGE_TAG_OR_DIGEST__
             pullSecrets:
-              - ghcr-secret
+              - "${{ inputs.pull_secret_name }}"
 
           secretVolumes:
             - kong-cluster-cert
