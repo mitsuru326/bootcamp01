@@ -268,3 +268,61 @@ jobs:
         run: |
           kubectl -n "${{ inputs.namespace }}" get deploy/${{ inputs.deployment_name }}-kong -o wide
           kubectl -n "${{ inputs.namespace }}" get pods -o wide --sort-by=.metadata.creationTimestamp
+
+      # （Helm のデプロイ／rollout 完了の “後ろ” に置いてください）
+      - name: Resolve DP global endpoint (Service EXTERNAL-IP / hostname)
+        id: dp_endpoint
+        run: |
+          set -euo pipefail
+          NS="${{ inputs.namespace }}"
+          REL="${{ inputs.deployment_name }}"    # = Helm リリース名（例: kong-dp-poc-bookinfo）
+
+          # 1) Service名の解決：Kongチャートは <release>-kong-proxy を作るのが既定
+          #    ラベル解決に失敗したら名前規約にフォールバック
+          SVC="$(kubectl -n "$NS" get svc \
+            -l "app.kubernetes.io/instance=${REL},app.kubernetes.io/name=kong,app.kubernetes.io/component=proxy" \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+          if [ -z "$SVC" ]; then
+            SVC="${REL}-kong-proxy"
+          fi
+
+          echo "Target Service: ${NS}/${SVC}"
+
+          # 2) EXTERNAL-IP / hostname の払い出し待ち（最大 10 分 / 60 回）
+          IP=""; HOST=""
+          for i in $(seq 1 60); do
+            IP="$(kubectl -n "$NS" get svc "$SVC" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+            HOST="$(kubectl -n "$NS" get svc "$SVC" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$IP" ] || [ -n "$HOST" ]; then
+              break
+            fi
+            echo "Waiting for EXTERNAL-IP ... (${i}/60)"; sleep 10
+          done
+
+          if [ -z "$IP" ] && [ -n "$HOST" ]; then
+            echo "Resolved hostname: $HOST"
+          elif [ -n "$IP" ]; then
+            echo "Resolved EXTERNAL-IP: $IP"
+          else
+            echo "ERROR: EXTERNAL-IP/hostname not assigned yet."
+            echo "Debug SVC:"; kubectl -n "$NS" get svc "$SVC" -o wide || true
+            exit 1
+          fi
+
+          # 3) 出力（Step outputs）
+          echo "external_ip=${IP}" >> "$GITHUB_OUTPUT"
+          echo "external_hostname=${HOST}" >> "$GITHUB_OUTPUT"
+          echo "service_name=${SVC}" >> "$GITHUB_OUTPUT"
+
+      - name: Append DP endpoint to Job Summary
+        if: always()
+        run: |
+          echo "## Kong DP Global Endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace  : \`${{ inputs.namespace }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Service    : \`${{ steps.dp_endpoint.outputs.service_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- EXTERNAL-IP: \`${{ steps.dp_endpoint.outputs.external_ip }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Hostname   : \`${{ steps.dp_endpoint.outputs.external_hostname }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 備考: EXTERNAL-IP は Service の \`.status.loadBalancer.ingress[0].ip\` に割当てられます（AKS の LoadBalancer 連携）。" >> $GITHUB_STEP_SUMMARY
