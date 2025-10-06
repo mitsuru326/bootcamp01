@@ -38,7 +38,7 @@ jobs:
         run: |
           set -x 
           deck file openapi2kong -s $SPECFILE -o ./kong.yaml --verbose 9
-          # deck file add-plugins -s ./kong.yaml -o ./kong.yaml kong-plugins/*
+          deck file add-plugins -s ./kong.yaml -o ./kong.yaml kong-plugins/*
           deck file add-tags -s ./kong.yaml -o ./kong.yaml $TAG
           cat kong.yaml
 
@@ -70,7 +70,7 @@ jobs:
 
       - name: Deploy Kong Config
         run: |
-          deck gateway sync ./kong.yaml kong-plugins/*.yaml \
+          deck gateway sync ./kong.yaml \
             --konnect-addr $KONNECT_URL \
             --konnect-control-plane-name $CONTROL_PLANE \
             --konnect-token ${{ secrets.KONNECT_TOKEN }} \
