@@ -1,0 +1,242 @@
+name: Create Dev Portal and APIs
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_name:
+        description: 'APIs Name'
+        required: true
+        default: 'auto_created_api'
+      api_version:
+        description: 'APIs Version'
+        required: true
+        default: '1.0.0'
+      dev_portal_name:
+        description: 'Dev Portal Name'
+        required: true
+        default: 'auto_created_devportal'
+      team_name:
+        description: 'Team Name in Dev Portal'
+        required: true
+        default: 'auto_created_team'
+      team_role:
+        description: 'Team Role to add (Not Replace)'
+        type: choice
+        options: [API Consumer, API Viewer]
+        required: true
+        default: API Consumer
+
+env:
+  REGION: "${{ vars.KONNECT_REGION }}"
+  REGIONAL_EP: "https://${{ vars.KONNECT_REGION }}.api.konghq.com/v3"
+  AUTH_HEADER: "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}"
+  API_NAME: "${{ github.event.inputs.api_name }}"
+  API_VERSION: "${{ github.event.inputs.api_version }}"
+  DEV_PORTAL_NAME: "${{ github.event.inputs.dev_portal_name }}"
+  TEAM_NAME: "${{ github.event.inputs.team_name }}"
+  TEAM_ROLE: "${{ github.event.inputs.team_role }}"
+
+jobs:
+  create_dev_portal:
+    runs-on: ubuntu-latest
+    outputs:
+      portal_id: ${{ steps.create_dev_portal.outputs.portal_id }}
+    container:
+      image: ubuntu
+    steps:
+      - name: Install command
+        run: |
+          apt-get update -y
+          apt-get install -y curl jq
+      - name: Create Dev Portal
+        id: create_dev_portal
+        shell: bash
+        run: |
+            set -x
+            # Check whether Dev Portal already exists.
+            PORTAL_ID=$(curl -s -X GET ${REGIONAL_EP}/portals \
+              -H "${AUTH_HEADER}" \
+              | jq -r --arg DEV_PORTAL_NAME "${DEV_PORTAL_NAME}" \
+               '.data[] | select(.name == $DEV_PORTAL_NAME) | .id' || true)
+            if [ -n "${PORTAL_ID}" ]; then
+              echo "Dev Portal '${DEV_PORTAL_NAME}' already exists with ID: ${PORTAL_ID}"
+            else
+              echo "Dev Portal '${DEV_PORTAL_NAME}' does not exist. Creating..."
+
+              jq -n --arg name "$DEV_PORTAL_NAME" '{
+                  name: $name,
+                  authentication_enabled: true,
+                  auto_approve_applications: false,
+                  auto_approve_developers: false,
+                  default_api_visibility: "private",
+                  default_page_visibility: "private"
+              }' > payload.json
+
+              curl_response=$(curl -w "\n%{http_code}" \
+                  -X POST "${REGIONAL_EP}/portals" \
+                  -H "${AUTH_HEADER}" \
+                  --json @payload.json)
+            
+              http_code=$(echo "$curl_response" | tail -n 1)
+              response_body=$(echo "$curl_response" | sed '$d')
+
+              # Check if the request succeeded
+              if [[ "$http_code" -ne 201 ]]; then
+                  echo "::error::Failed to create Dev Portal. Status: $http_code, Response: $response_body"
+                  exit 1
+              fi
+              PORTAL_ID=$(echo "$response_body" | jq -r '.id')
+            fi
+
+            ## Carry over Portal ID to other jobs
+            echo "portal_id=$PORTAL_ID" >> $GITHUB_OUTPUT
+
+  create_api:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu
+    outputs:
+      api_id: ${{ steps.create_api.outputs.api_id }}
+    steps:
+      - name: Install command
+        run: |
+          apt-get update -y
+          apt-get install -y curl jq
+      - name: Create API
+        id: create_api
+        shell: bash
+        run: |
+            set -x
+            # Check whether API already exists.
+            API_ID=$(curl -s -X GET ${REGIONAL_EP}/apis \
+              -H "${AUTH_HEADER}" \
+              | jq -r --arg API_NAME "${API_NAME}" --arg API_VERSION "${API_VERSION}" \
+               '.data[] | select(.name == $API_NAME and .version == $API_VERSION) | .id' || true)
+            if [ -n "${API_ID}" ]; then
+              echo "API '${API_NAME}' already exists with ID: ${API_ID}"
+            else
+              echo "API '${API_NAME}' ${API_VERSION} does not exist. Creating..."
+
+              jq -n --arg name "$API_NAME" --arg version "$API_VERSION" '{
+                  "name": $name,
+                  "version": $version
+              }' > payload.json
+
+              curl_response=$(curl -w "\n%{http_code}" \
+                  -X POST "${REGIONAL_EP}/apis" \
+                  -H "${AUTH_HEADER}" \
+                  --json @payload.json)
+            
+              http_code=$(echo "$curl_response" | tail -n 1)
+              response_body=$(echo "$curl_response" | sed '$d')
+
+              # Check if the request succeeded
+              if [[ "$http_code" -ne 201 ]]; then
+                  echo "::error::Failed to create API. Status: $http_code, Response: $response_body"
+                  exit 1
+              fi
+              API_ID=$(echo "$response_body" | jq -r '.id')
+            fi
+
+            ## Carry over API ID to other jobs
+            echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+  create_team:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu
+    needs: create_dev_portal
+    outputs:
+      team_id: ${{ steps.create_team.outputs.team_id }}
+    steps:
+      - name: Install command
+        run: |
+          apt-get update -y
+          apt-get install -y curl jq
+      - name: Create Team
+        id: create_team
+        shell: bash
+        run: |
+            set -x
+            export PORTAL_ID=${{ needs.create_dev_portal.outputs.portal_id }}
+            # Check whether Team already exists.
+            TEAM_ID=$(curl -s -X GET ${REGIONAL_EP}/portals/${PORTAL_ID}/teams \
+              -H "${AUTH_HEADER}" \
+              | jq -r --arg TEAM_NAME "${TEAM_NAME}" \
+               '.data[] | select(.name == $TEAM_NAME) | .id' || true)
+            if [ -n "${TEAM_ID}" ]; then
+              echo "Team '${TEAM_NAME}' already exists with ID: ${TEAM_ID}"
+            else
+              echo "Team '${TEAM_NAME}' does not exist. Creating..."
+              jq -n --arg name "$TEAM_NAME" '{
+                  name: $name
+              }' > payload.json
+
+              curl_response=$(curl -w "\n%{http_code}" \
+                  -X POST "${REGIONAL_EP}/portals/${PORTAL_ID}/teams" \
+                  -H "${AUTH_HEADER}" \
+                  --json @payload.json)
+
+              http_code=$(echo "$curl_response" | tail -n 1)
+              response_body=$(echo "$curl_response" | sed '$d')
+
+              # Check if the request succeeded
+              if [[ "$http_code" -ne 201 ]]; then
+                  echo "::error::Failed to create Team. Status: $http_code, Response: $response_body"
+                  exit 1
+              fi
+
+              TEAM_ID=$(echo "$response_body" | jq -r '.id')
+            fi
+
+            ## Carry over Team ID to other jobs
+            echo "team_id=$TEAM_ID" >> $GITHUB_OUTPUT
+
+  add_role:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu
+    needs: [create_team, create_dev_portal, create_api]
+    steps:
+      - name: Install command
+        run: |
+          apt-get update -y
+          apt-get install -y curl jq
+      - name: Add Role to Team
+        shell: bash
+        run: |
+            set -x
+            export TEAM_ID=${{ needs.create_team.outputs.team_id }}
+            export PORTAL_ID=${{ needs.create_dev_portal.outputs.portal_id }}
+            export API_ID=${{ needs.create_api.outputs.api_id }}
+
+            # Check whether Role already exists.
+            ROLE_EXISTS=$(curl -s -X GET ${REGIONAL_EP}/portals/${PORTAL_ID}/teams/${TEAM_ID}/assigned-roles \
+              -H "${AUTH_HEADER}" \
+              | jq -r --arg TEAM_ROLE "${TEAM_ROLE}" --arg API_ID "$API_ID" \
+               '.data[] | select(.role_name == $TEAM_ROLE and .entity_id == $API_ID) | .id' | xargs)
+            if [ -n "$ROLE_EXISTS" ]; then
+              echo "Role '${TEAM_ROLE}' for API '${API_ID}' already exists with ID: ${ROLE_EXISTS}"
+            else
+              echo "Role '${TEAM_ROLE}' does not exist. Creating..."
+              jq -n --arg role "$TEAM_ROLE" --arg api_id "$API_ID" --arg region "$REGION" '{
+                  role_name: $role,
+                  entity_id: $api_id,
+                  entity_type_name: "Services",
+                  entity_region: $region
+              }' > payload.json
+
+              curl_response=$(curl -w "\n%{http_code}" \
+                  -X POST "${REGIONAL_EP}/portals/${PORTAL_ID}/teams/${TEAM_ID}/assigned-roles" \
+                  -H "${AUTH_HEADER}" \
+                  --json @payload.json)
+
+              http_code=$(echo "$curl_response" | tail -n 1)
+              response_body=$(echo "$curl_response" | sed '$d')
+
+              # Check if the request succeeded
+              if [[ "$http_code" -ne 201 ]]; then
+                  echo "::error::Failed to assign role. Status: $http_code, Response: $response_body"
+                  exit 1
+              fi
+            fi
