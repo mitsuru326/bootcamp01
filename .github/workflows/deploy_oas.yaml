@@ -1,0 +1,93 @@
+name: Convert OpenAPI Spec to Kong and Deploy
+
+on:
+  push:
+    paths:
+      - docs/openapi/api-spec.yaml
+  workflow_dispatch:
+
+env:
+  KONNECT_URL: "https://${{ vars.KONNECT_REGION }}.api.konghq.com"
+  CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
+  TAG: ${{ vars.TAG }}
+
+jobs:
+  lint-spec:
+    runs-on: ubuntu-latest
+    container:
+      image: kong/inso
+    env:
+      SPECFILE: "docs/openapi/api-spec.yaml"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run inso lint
+        run: inso lint spec $SPECFILE --verbose
+
+  deploy-oas:
+    runs-on: ubuntu-latest
+    needs: lint-spec
+    container:
+      image: kong/deck
+      options: --user root
+    env:
+      SPECFILE: "docs/openapi/api-spec.yaml"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Convert from OpenAPI Spec to Kong Config
+        run: |
+          set -x 
+          deck file openapi2kong -s $SPECFILE -o ./kong.yaml --verbose 9
+          deck file add-plugins -s ./kong.yaml -o ./kong.yaml kong-plugins/*
+          deck file add-tags -s ./kong.yaml -o ./kong.yaml $TAG
+          cat kong.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kong.yaml
+          path: kong.yaml
+
+      - name: Back up current settings
+        run: |
+          deck gateway dump -o ./current-kong.yaml \
+            --konnect-addr $KONNECT_URL \
+            --konnect-control-plane-name $CONTROL_PLANE \
+            --konnect-token ${{ secrets.KONNECT_TOKEN }}
+          cat ./current-kong.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup
+          path: current-kong.yaml
+
+      - name: Diff current settings and kong.yaml
+        run: |
+          deck gateway diff ./kong.yaml \
+            --konnect-addr $KONNECT_URL \
+            --konnect-control-plane-name $CONTROL_PLANE \
+            --konnect-token ${{ secrets.KONNECT_TOKEN }} \
+            --select-tag $TAG
+
+      - name: Deploy Kong Config
+        run: |
+          deck gateway sync ./kong.yaml \
+            --konnect-addr $KONNECT_URL \
+            --konnect-control-plane-name $CONTROL_PLANE \
+            --konnect-token ${{ secrets.KONNECT_TOKEN }} \
+            --select-tag $TAG
+
+  test:
+    runs-on: ubuntu-latest
+    needs: deploy-oas
+    container:
+      image: ubuntu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirmation
+        run: |
+          ./tests/e2e.sh nothing
