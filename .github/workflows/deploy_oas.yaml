@@ -85,6 +85,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Make e2e.sh executable
+        run: chmod +x ./tests/e2e.sh
+
       - name: Confirmation
-        run: |
-          ./tests/e2e.sh nothing
+        run: ./tests/e2e.sh nothing
