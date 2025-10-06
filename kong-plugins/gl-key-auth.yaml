@@ -1,0 +1,16 @@
+_format_version: "1.0"
+add-plugins:
+- selectors:
+  - $.services[?(@.name=="bookinfo-api")]
+  overwrite: false
+  plugins:
+  - name: key-auth
+    protocols:
+    - http
+    - https
+    config:
+      key_names:
+      - apikey              # リクエストヘッダやクエリで利用するキー名
+      hide_credentials: true # 認証後にクライアントから送られたキーを上流に渡さない
+      key_in_body: false     # body からのキー受け取りを無効化
+      run_on_preflight: true # OPTIONS リクエストにも適用
