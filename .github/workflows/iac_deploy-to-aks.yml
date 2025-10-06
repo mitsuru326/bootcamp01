@@ -111,7 +111,7 @@ jobs:
           CP_ID=$(curl -s -X GET \
             -H "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}" \
             "${KONNECT_API}/control-planes" \
-            | jq -r --arg name "${{ vars.CP_NAME }}" '.data[] | select(.name==$name) | .id')
+            | jq -r --arg name "${{ vars.CONTROL_PLANE }}" '.data[] | select(.name==$name) | .id')
           mkdir certs
           openssl req -new -x509 -nodes -newkey rsa:2048 \
             -subj "/CN=kongdp/C=US" \
