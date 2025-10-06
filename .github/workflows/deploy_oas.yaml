@@ -14,16 +14,12 @@ env:
 jobs:
   lint-spec:
     runs-on: ubuntu-latest
-    container:
-      image: kong/inso
-    env:
-      SPECFILE: "docs/openapi/api-spec.yaml"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run inso lint
-        run: inso lint spec-file $SPECFILE --verbose
+      - uses: actions/checkout@v4
+      - name: Install spectral
+        run: npm install -g @stoplight/spectral-cli
+      - name: Run spectral lint
+        run: spectral lint docs/openapi/api-spec.yaml
 
   deploy-oas:
     runs-on: ubuntu-latest
