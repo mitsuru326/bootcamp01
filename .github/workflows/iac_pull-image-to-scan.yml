@@ -168,7 +168,7 @@ jobs:
     name: "Publish to GHCR (only if scan passed)"
     needs: scan
     if: ${{ needs.scan.result == 'success' }}
-    uses: ./.github/workflows/publish-to-ghcr.yml
+    uses: ./.github/workflows/iac_publish-to-ghcr.yml
     permissions:
       contents: read
       packages: write      # ← ここで付与（呼び出し側で指定できる）
@@ -182,7 +182,7 @@ jobs:
     name: "Deploy to AKS (Konnect Data Plane)"
     needs: publish
     if: ${{ needs.publish.result == 'success' }}  # push 成功時のみ
-    uses: ./.github/workflows/deploy-to-aks.yml
+    uses: ./.github/workflows/iac_deploy-to-aks.yml
     permissions:
       id-token: write
       contents: read
