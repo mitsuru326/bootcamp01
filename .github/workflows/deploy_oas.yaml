@@ -18,8 +18,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install spectral
         run: npm install -g @stoplight/spectral-cli
+        
       - name: Run spectral lint (OpenAPI standard rules)
-        run: spectral lint docs/openapi/api-spec.yaml --ruleset spectral:oas
+        run: spectral lint docs/openapi/api-spec.yaml --ruleset=@spectral/oas
 
   deploy-oas:
     runs-on: ubuntu-latest
