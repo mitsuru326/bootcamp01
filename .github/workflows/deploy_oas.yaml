@@ -16,11 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install spectral
-        run: npm install -g @stoplight/spectral-cli
-        
+      - name: Install spectral + ruleset
+        run: |
+          npm install -g @stoplight/spectral-cli @spectral/oas
+
       - name: Run spectral lint (OpenAPI standard rules)
         run: spectral lint docs/openapi/api-spec.yaml --ruleset=@spectral/oas
+
 
   deploy-oas:
     runs-on: ubuntu-latest
