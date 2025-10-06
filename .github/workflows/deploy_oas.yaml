@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run inso lint
-        run: inso lint spec $SPECFILE --verbose
+        run: inso lint spec-file $SPECFILE --verbose
 
   deploy-oas:
     runs-on: ubuntu-latest
