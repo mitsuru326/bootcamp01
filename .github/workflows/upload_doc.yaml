@@ -1,0 +1,101 @@
+name: Upload Document for API Product to Konnect / Dev Portal
+
+on:
+  push:
+    paths:
+      - docs/product.md
+  workflow_dispatch:
+
+env:
+  REGIONAL_EP: "https://${{ vars.KONNECT_REGION }}.api.konghq.com/v3"
+  AUTH_HEADER: "Authorization: Bearer ${{ secrets.KONNECT_TOKEN }}"
+  PRODUCT_NAME: "${{ vars.PRODUCT_NAME }}"
+
+jobs:
+  upload-doc:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install command
+        run: |
+          apt-get update -y
+          apt-get install -y curl jq
+      - name: Upload product.md
+        shell: bash
+        run: |
+          file="docs/product.md"
+          msg="Document '$file' has been successfully uploaded."
+          return_code=0
+          set -x
+          echo "Detected changes in $file"
+
+          # Get Product ID from PRODUCT_NAME.
+          PRODUCT_ID=$(curl -X GET -s \
+                         ${REGIONAL_EP}/apis \
+                         -H "${AUTH_HEADER}" \
+                       | jq -r '.data[] | select(.name == "'"$PRODUCT_NAME"'") | .id' || true)
+
+          if [ "$(echo $PRODUCT_ID | wc -w)" -ne 1 ]; then
+            echo "[Error] Failed to obtain PRODUCT_ID or obtained multiple PRODUCT_NAME: $PRODUCT_NAME, PRODUCT_IDs: $PRODUCT_ID"
+            exit 1
+          fi
+
+          # Remove path and suffix.
+          filename=$(echo "$file" | sed "s|.*/||;s|.md$||")
+
+          # Get Document ID
+          DOC_ID=$(curl -s -X GET \
+            ${REGIONAL_EP}/apis/${PRODUCT_ID}/documents \
+            -H "${AUTH_HEADER}" \
+            | jq -r --arg filename "${filename}" '.data[] | select(.title == $filename) | .id' || true)
+
+          if [ -z "$DOC_ID" ]; then
+            # If no document exists, create a new one
+            action=create
+            # Create payload
+            jq -n \
+              --arg slug "$filename" \
+              --arg status "published" \
+              --arg title "$filename" \
+              --rawfile content "$file" \
+              '{
+                slug: $slug,
+                status: $status,
+                title: $title,
+                content: $content
+              }' > payload.json
+            UPLOAD_ENDPOINT=${REGIONAL_EP}/apis/${PRODUCT_ID}/documents
+            METHOD=POST
+          else
+            # If the document exists, update it
+            action=update
+            # Create payload
+            jq -n --rawfile content "$file" \
+              '{content: $content}' > payload.json
+            UPLOAD_ENDPOINT=${REGIONAL_EP}/apis/${PRODUCT_ID}/documents/$DOC_ID
+            METHOD=PATCH
+          fi
+
+          curl_response=$(curl -w "\n%{http_code}" -X $METHOD \
+            ${UPLOAD_ENDPOINT} \
+            -H "${AUTH_HEADER}" \
+            -H "Content-Type: application/json" \
+            --data-binary @payload.json)          
+
+          http_code=$(echo "$curl_response" | tail -n 1)
+
+          # Check if the request succeeded
+          if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
+            msg="[Error] Failed to $action document. (err: $curl_response)"
+            return_code=1
+          fi
+
+          echo ""
+          echo "---"
+          echo "Status Code: $http_code"
+          echo $msg
+          echo "---"
+          exit $return_code
