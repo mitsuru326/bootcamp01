@@ -109,7 +109,7 @@ paths:
         "400":
           description: Invalid product id
 servers:
-  - url: http://10.0.80.64:9080/api/v1
+  - url: http://10.0.240.168:9080/api/v1
 components:
   schemas:
     Product:
