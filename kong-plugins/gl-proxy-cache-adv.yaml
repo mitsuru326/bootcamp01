@@ -1,7 +1,7 @@
 _format_version: "1.0"
 add-plugins:
 - selectors:
-  - $
+  - service.name == "bookinfo-api"
   overwrite: false
   plugins:
   - name: proxy-cache-advanced
