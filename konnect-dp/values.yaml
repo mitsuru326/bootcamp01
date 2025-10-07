@@ -28,6 +28,7 @@ env:
   proxy_access_log: "off"
   dns_stale_ttl: "3600"
   router_flavor: expressions
+  KONG_PLUGINS: bundled,prometheus
 
 ingressController:
   enabled: false
