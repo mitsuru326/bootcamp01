@@ -1,65 +1,62 @@
-# Hosting httpbin in a Containerized Environment
+## Bookinfo サンプルアプリケーション
 
-## 1. What is httpbin?
-[httpbin](https://httpbin.org) is a popular HTTP request and response mock service.  
-It provides ready-to-use endpoints that allow developers to:
-- Test HTTP methods such as `GET`, `POST`, `PUT`, and `DELETE`.
-- Inspect headers, query parameters, and request bodies.
-- Simulate different response codes and behaviors.
+`bootcamp01` リポジトリでは、Istio を活用したマイクロサービスアーキテクチャの学習を目的とし、以下の構成で構築された Bookinfo アプリケーションを提供しています。
 
----
+### アーキテクチャ概要
 
-## 2. Why Host httpbin Yourself?
-While the public httpbin.org service is available, hosting httpbin in a container has several advantages:
+Bookinfo アプリケーションは、以下の 4 つのマイクロサービスで構成されています：
 
-| Benefit         | Description                                                                 |
-|-----------------|-----------------------------------------------------------------------------|
-| **Reliability** | Avoid dependency on the public instance.                                   |
-| **Consistency** | Ensure the same version is always used across environments.                |
-| **Security**    | Keep API testing isolated within your own network.                         |
-| **Integration** | Easily connect with local tools, CI/CD pipelines, or Kubernetes clusters.  |
+- **productpage**: 書籍の情報を表示するメインページを提供します。`details` と `reviews` サービスを呼び出して、書籍の詳細情報とレビューを取得します。
+- **details**: 書籍の詳細情報（ISBN、ページ数など）を提供します。
+- **reviews**: 書籍のレビューを提供します。`ratings` サービスを呼び出して、各レビューに対する評価を取得します。
+- **ratings**: 書籍の評価情報を提供します。
 
----
+`reviews` サービスには 3 つのバージョンが存在します：
 
-## 3. Running httpbin as a Container
-The service is officially available as a Docker image (`kennethreitz/httpbin`).  
-Running it locally is straightforward:
+- **v1**: `ratings` サービスを呼び出しません。
+- **v2**: `ratings` サービスを呼び出し、評価を黒い星で表示します。
+- **v3**: `ratings` サービスを呼び出し、評価を赤い星で表示します。
 
-    docker run -d -p 8080:80 kennethreitz/httpbin
+### サービスのデプロイ
 
-Once started, httpbin will be available at:
+以下のコマンドで、Bookinfo アプリケーションを Kubernetes クラスターにデプロイします：
 
-    http://localhost:8080
-
-Example usage:
-- `GET /get` → Returns request data.
-- `POST /post` → Echoes posted data.
-- `GET /status/404` → Returns a 404 response.
-
----
-
-## 4. Architecture Overview
-The following diagram shows how httpbin is hosted in a container and accessed by clients:
-
-```mermaid
-flowchart TD
-    A[Client] -->|HTTP Request| B[Container: httpbin]
-    B -->|HTTP Response| A
-    B --> C[Host Network :8080]
-    C --> D[Local Machine or Cluster]
+```bash
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.27/samples/bookinfo/platform/kube/bookinfo.yaml
 ```
 
----
+これにより、`productpage`、`details`、`reviews`、`ratings` の各サービスがデプロイされます。
 
-## 5. Use Cases
-- **API Prototyping**: Quickly mock endpoints before backend is ready.  
-- **CI/CD Testing**: Validate API clients in automated pipelines.  
-- **Learning Tool**: Understand headers, cookies, and HTTP methods interactively.  
+### サービスのアクセス
 
----
+アプリケーションを外部からアクセスするためには、Ingress Gateway を設定する必要があります。以下のコマンドで Gateway を作成します：
 
-## 6. Conclusion
-By running httpbin in a containerized environment, you gain a **reliable, reproducible, and secure** way to test and experiment with HTTP interactions.  
-This approach is especially valuable when integrating with modern DevOps practices and Kubernetes-based platforms.
+```bash
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.27/samples/bookinfo/networking/bookinfo-gateway.yaml
+```
 
-Update: 2025/10/02 19:36(JST)
+その後、以下のコマンドで Gateway の IP アドレスとポートを取得します：
+
+```bash
+export INGRESS_HOST=$(kubectl get gateway bookinfo-gateway -o jsonpath='{.status.addresses[0].value}')
+export INGRESS_PORT=$(kubectl get gateway bookinfo-gateway -o jsonpath='{.spec.listeners[?(@.name=="http")].port}')
+export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+```
+
+ブラウザで `http://$GATEWAY_URL/productpage` にアクセスすると、Bookinfo アプリケーションのメインページが表示されます。
+
+### サービスのバージョン管理
+
+Istio を使用して、各サービスのバージョンを管理します。以下のコマンドで、各サービスの DestinationRule を作成します：
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.27/samples/bookinfo/networking/destination-rule-all.yaml
+```
+
+これにより、Istio が各サービスのバージョンを認識し、トラフィックのルーティングが可能になります。
+
+### 次のステップ
+
+- Istio を使用したトラフィック管理の学習
+- サービス間の認証と認可の設定
+- サービスメッシュの可観測性の向上（Prometheus、Grafana、Kiali などの導入）
