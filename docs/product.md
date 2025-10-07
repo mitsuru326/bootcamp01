@@ -159,5 +159,3 @@ curl -s http://$GATEWAY_URL/ratings/0
 * Istio: Bookinfo example — Overview / Run Bookinfo / Deploying the Bookinfo Application.
 
 ---
-
-このドキュメントは「アプリケーションのユーザ視点での使い方」に絞って整理しています。さらに「UI のスクリーンショットを入れてほしい」「各サービスの実際のレスポンス JSON をファイルとして保存してほしい」といった要望があれば、そのまま反映します。
