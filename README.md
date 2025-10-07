@@ -15,7 +15,7 @@ Bookinfo は 4 つのマイクロサービスで構成されたサンプルア�
 * `reviews` — 書籍のレビュー本文を返し、バージョンに応じて `ratings` を呼ぶことがあります。\
 * `ratings` — 各レビューに紐づく評価（星）を返します。
 
-（参考：Istio の Bookinfo 説明。）citeturn0search0
+（参考：Istio の Bookinfo 説明。）
 
 ---
 
@@ -39,7 +39,7 @@ http://localhost:8080/productpage
 
 ### 2.2 UI の観察ポイント
 
-* ページをリロード（更新）すると、`reviews` の複数バージョン（v1/v2/v3）がランダムに返る構成では、表示されるレビューの星の有無や色が変わる様子を確認できます（デフォルト設定ではラウンドロビンで切り替わります）。これによりバージョン差分の挙動を視覚的に確認できます。citeturn1search0
+* ページをリロード（更新）すると、`reviews` の複数バージョン（v1/v2/v3）がランダムに返る構成では、表示されるレビューの星の有無や色が変わる様子を確認できます（デフォルト設定ではラウンドロビンで切り替わります）。これによりバージョン差分の挙動を視覚的に確認できます。
 
 * `reviews` のバージョンごとの違い：
 
@@ -71,7 +71,7 @@ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metad
   curl -s productpage:9080/productpage | grep -o "<title>.*</title>"
 ```
 
-（上記は Istio サンプルでよく使われる確認方法です）。citeturn1search0
+（上記は Istio サンプルでよく使われる確認方法です）。
 
 ### 3.2 details（書籍情報）
 
@@ -101,7 +101,7 @@ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metad
 }
 ```
 
-（実例はチュートリアルや実装によって若干異なりますが、同等のフィールドを返す点は共通です）。citeturn1search1turn2search18
+（実例はチュートリアルや実装によって若干異なりますが、同等のフィールドを返す点は共通です）。
 
 ### 3.3 reviews（レビュー一覧）
 
@@ -117,7 +117,7 @@ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metad
 * **期待動作**：
 
   * v1: レビュー本文のみ（星なし）。
-  * v2/v3: 内部で `ratings` を呼び、レビューに評価（星）を付与する。UI（productpage）では v2 は黒星、v3 は赤星で表示されます。citeturn0search0turn1search0
+  * v2/v3: 内部で `ratings` を呼び、レビューに評価（星）を付与する。UI（productpage）では v2 は黒星、v3 は赤星で表示されます。
 
 ### 3.4 ratings（評価）
 
@@ -145,21 +145,21 @@ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metad
 ### 4.1 UI でバージョン差を確認する
 
 * productpage をリロードしてレビューの星表示が `なし / 黒 / 赤` のどれかになることを確認します。
-* もし常に同じ表示になる場合は、Istio の VirtualService / DestinationRule によりトラフィックが固定されている可能性があります（バージョン定義を確認してください）。citeturn1search2
+* もし常に同じ表示になる場合は、Istio の VirtualService / DestinationRule によりトラフィックが固定されている可能性があります（バージョン定義を確認してください）。
 
 ### 4.2 各サービスの生データを直接確認する
 
-* `kubectl exec` で任意の Pod に入り、上記の `curl` コマンドで `/details`, `/reviews`, `/ratings` を直接叩くと、フロントの集約結果ではなく、個々のサービス応答を確認できます。これにより、どのサービスがどのデータを返しているかを分解して調べられます。citeturn1search0
+* `kubectl exec` で任意の Pod に入り、上記の `curl` コマンドで `/details`, `/reviews`, `/ratings` を直接叩くと、フロントの集約結果ではなく、個々のサービス応答を確認できます。これにより、どのサービスがどのデータを返しているかを分解して調べられます。
 
 ### 4.3 テスト用の固定リクエスト
 
-* VM やローカル環境からクラスタ内のサービス名を解決してリクエストする例（`--resolve` を使った curl）を利用すると、外部からクラスタ内部ホスト名へ直接テストできます。実際のやり方は環境に依存しますが、Istio ドキュメントに例が掲載されています。citeturn1search1
+* VM やローカル環境からクラスタ内のサービス名を解決してリクエストする例（`--resolve` を使った curl）を利用すると、外部からクラスタ内部ホスト名へ直接テストできます。実際のやり方は環境に依存しますが、Istio ドキュメントに例が掲載されています。
 
 ---
 
 ## 5. トラブルシュートのヒント
 
-* `productpage` が空白または 404 を返す：Gateway/VirtualService の設定や Service 名に誤りがないか確認してください。citeturn1search3
+* `productpage` が空白または 404 を返す：Gateway/VirtualService の設定や Service 名に誤りがないか確認してください。
 * レビューが常に同じバージョンで表示される：DestinationRule / VirtualService によりトラフィックが固定されていないか確認。
 * 期待する JSON が返らない：対象サービス（details/reviews/ratings）の Pod ログを確認し、実際のレスポンスを `curl` で直接確認してください。
 
@@ -167,7 +167,7 @@ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metad
 
 ## 6. 参照（オリジナル）
 
-* Istio: Bookinfo example — Overview / Run Bookinfo / Deploying the Bookinfo Application.citeturn0search0turn1search2
+* Istio: Bookinfo example — Overview / Run Bookinfo / Deploying the Bookinfo Application.
 
 ---
 
