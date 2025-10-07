@@ -1,5 +1,4 @@
 # bootcamp01
-# Bootcamp01
 
 ## 概要
 
