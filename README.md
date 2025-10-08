@@ -214,30 +214,76 @@ serviceMonitor:
    <img width="839" height="412" alt="image" src="https://github.com/user-attachments/assets/a7337054-67b7-4c65-b3e5-54503c660a44" />
 
 ## APIOpsの実装
+### Bookinfoのデプロイ
+1. アプリのリポジトリを取得する
+   ```
+   git clone https://github.com/imurata/bookinfo.git
+   ```
+2. Cloud ShellからACRにビルドするため、「build-services.sh」を以下に修正する
+``` shell:build-services.sh
+#!/bin/bash
+set -ox errexit
 
-## 🛠 学習内容 / モジュール
+# ルートディレクトリへ移動
+SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+cd "$SCRIPTDIR/../../.."
 
-- `kong-plugins/`：Kong プラグイン開発演習
-- `konnect-dp/`：Konnect データプレーン操作演習
-- `tests/`：学習用テストスクリプト
-- `docs/`：学習メモやドキュメント
+# 必須環境変数
+ACR_NAME="${BOOKINFO_HUB:?BOOKINFO_HUB must be set}"   # 例: kongbootcamp01registry
+TAG="${BOOKINFO_TAG:?BOOKINFO_TAG must be set}"        # 例: 1.20.3
 
----
+# 各サービスのビルド
+SERVICES=("productpage" "details" "reviews" "ratings")
 
-## 🤝 貢献
+for svc in "${SERVICES[@]}"; do
+  echo "Building $svc..."
+  az acr build \
+    --registry "$ACR_NAME" \
+    --image "${svc}:${TAG}" \
+    --file "samples/bookinfo/src/${svc}/Dockerfile" \
+    "samples/bookinfo/src/${svc}"
+done
 
-- Issue を立てる
-- ブランチを作成 (`feature/xxx`)
-- プルリクエストで提出
-- 簡単なレビュー後マージ
+# yaml 内のイメージ参照を更新（必要な場合）
+if [[ "${BOOKINFO_UPDATE}" == "true" ]]; then
+  find ./samples/bookinfo/platform -name "*bookinfo*.yaml" \
+    -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${ACR_NAME}.azurecr.io\\1:${TAG}#g" {} +
+fi
+```
+3. 以下を実行する
+```
+export BOOKINFO_HUB=kongbootcamp01registry
+export BOOKINFO_TAG=1.20.3
+./bookinfo/src/build-services.sh
+```
+4. ビルドできたこと確認する
+```
+az acr repository list --name kongbootcamp01registry -o table
+```
+5. ビルドしたイメージをAKSにデプロイする
+```
+kubectl apply -f bookinfo/platform/kube/bookinfo.yaml
+```
+### Konnect Dev PortalのPortalsとAPIsの作成・更新
+1. Actionの「Create Dev Portal and APIs」を実行する
+2. 必要に応じて以下のパラメータを設定する
+  - APIs Name
+  - APIs Version
+  - Dev Portal Name
+  - Team Name in Dev Portal
+  - Team Role to add (Not Replace)
+3. Dev Portalで「Portals」と「APIs」が作成されていることを確認する
+    
+### OASドキュメントの作成とサービス＆ルートの作成
+1. Actionの「Convert OpenAPI Spec to Kong and Deploy」を実行する
+   または、docs/openapi/api-spec.yamlを更新する
+2. 「Dev Portal」→「APIs」→「API Specification」が作成されていることを確認する
+3. 「Gateway Services」と「Routes」が作成されていることを確認する
 
----
-
-## 📄 ライセンス
-
-MIT License（必要に応じて変更してください）
-
----
+### API Productドキュメントの作成・更新
+1. Actionの「Upload Document for API Product to Konnect / Dev Portal」を実行する
+   または、docs/product.mdを更新する
+2. 「Dev Portal」→「APIs」→「Documentation」が作成されていることを確認する
 
 ## 📞 作者
 
