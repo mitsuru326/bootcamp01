@@ -287,7 +287,7 @@ kubectl apply -f bookinfo/platform/kube/bookinfo.yaml
 
 ### 初期ユースケースの実装
 #### API(/api/v1)はAPIキーを持っている人のみ利用でき、流量制限を全体に適用（同一IPは直近30秒で100回を上限）
-⇒apikeyなしでアクセス
+apikeyなしでアクセス
 ```
 $ http http://kong-bootcamp01.apipfdev.net/products
 HTTP/1.1 401 Unauthorized
@@ -305,7 +305,7 @@ X-Kong-Response-Latency: 0
     "request_id": "0acd5f2a5d93917d8c3f281291af4b1f"
 }
 ```
-apikeyありでアクセス1回目
+apikeyありでアクセス1回目(RateLimitがレスポンスヘッダーに含まれている)
 ```
 $ http http://kong-bootcamp01.apipfdev.net/products apikey:bootcamp01-key
 HTTP/1.1 200 OK
@@ -336,7 +336,9 @@ X-RateLimit-Remaining-30: 9999
 ```
 
 #### CacheはGateway側で持たせたい
-apikeyありでアクセス2回目
+プラグイン「Proxy Caching Advanced」を有効にする
+※「Convert OpenAPI Spec to Kong and Deploy」で反映される
+apikeyありでアクセス2回目（X-Cache-StatusがHITになっている）
 ```
 $ http http://kong-bootcamp01.apipfdev.net/products apikey:bootcamp01-key
 HTTP/1.1 200 OK
@@ -350,7 +352,7 @@ RateLimit-Reset: 9
 Server: gunicorn
 Via: 1.1 kong/3.11.0.4-enterprise-edition
 X-Cache-Key: d5008eb116adb8baa882e4d09524920e86ec22f29d09a7821614747f2efe2d02
-**X-Cache-Status: Hit**
+X-Cache-Status: Hit
 X-Kong-Proxy-Latency: 1
 X-Kong-Request-Id: 09e97748c5fd8a371e426b2115caf402
 X-Kong-Upstream-Latency: 0
@@ -367,10 +369,22 @@ age: 75
 ]
 ```
 #### Data Planeは他のサービスや本番、開発で分ける
+「ゴールデンイメージの準備」の通り、パラメータで指定する
 #### 性能を確認するためのダッシュボードが利用できる
+http://grafana.apipfdev.netにアクセスして、Kong 用の公式/コミュニティ Grafana ダッシュボード：Kong Official Dashboard (ID: 7424)を設定する
+<img width="949" height="425" alt="image" src="https://github.com/user-attachments/assets/b89103c9-59fb-49b9-b2dd-f814b5144a0e" />
 #### Kongの学習コストは最小限に抑えて開発に集中したい
+APIの更新は全てGitHub Actionから実行できる
 #### API Specをポータルで公開したい
+KonnectのDevportalにアクセスする
+<img width="938" height="434" alt="image" src="https://github.com/user-attachments/assets/244642d6-81e7-4af0-9c25-935651fc733b" />
 #### このServiceにのみポリシーを適用したい（GWが管理する他のServiceにはポリシーが適用されないようにしたい)
+プラグインは「Convert OpenAPI Spec to Kong and Deploy」でAPI毎に適用される
+※kong-plugins/gl-key-auth.yamlの抜粋
+```
+- selectors:
+  - $.services[?(@.name=="bookinfo-api")]
+```
 
 
 ## 📞 作者
