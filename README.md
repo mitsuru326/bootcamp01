@@ -2,25 +2,46 @@
 
 ## 📌 概要
 
-`bootcamp01` は、学習用ブートキャンプ演練リポジトリです。  
-主に Shell スクリプト、Kong プラグイン、Konnect データプレーン操作の練習を目的としています。
-
-主な学習対象：
-- Shell スクリプト基礎
-- Kong プラグイン開発
-- Konnect データプレーン操作
-- テスト自動化（簡易演練）
+`bootcamp01` は、ケーススタディにおけるTIS太田の解答例の資材をまとめたリポジトリである。
 
 ---
 
-## 📂 ディレクトリサリアル
+## 前提
+
+```
+### 環境
+Kubernetes：AKS
+コンテナレジストリ：ACR
+ワークフロー：GitHub Actions
+
+### GitHub Secretsの登録
+AZURE_CREDENTIALS
+DOCKERHUB_TOKEN
+DOCKERHUB_USERNAME
+GHCR_REGISTRY
+GHCR_TOKEN
+GHCR_USERNAME
+KONNECT_TOKEN
+REGISTRY_PASSWORD
+REGISTRY_USERNAME
+
+### GitHub Variablesの登録
+CONTROL_PLANE      #例）ota-test
+KONNECT_REGION     #例）us
+PRODUCT_NAME       #例）bootcamp01_bookinfo
+TAG                #例）bookinfo
+
+---
+
+## 📂 ディレクトリ構成
 
 ```
 .
 ├── .github/workflows/   # GitHub Actions ワークフロー
-├── docs/                # ドキュメント（学習メモや規劃書）
-├── kong-plugins/        # Kong プラグイン演練
-├── konnect-dp/          # Konnect データプレーン操作演練
+├── auditlog/            # Konnectの監査ログをLog Analyticsに保存するためのモジュール
+├── docs/                # APIOpsドキュメント
+├── kong-plugins/        # Kong プラグイン
+├── konnect-dp/          # Konnect データプレーン構成のテンプレート※ワークフローでは使わない
 ├── tests/               # テストスクリプト
 ├── .spectral.yaml       # Lint / スタイルガイド設定
 └── README.md            # このファイル
@@ -28,13 +49,19 @@
 
 ---
 
-## 🚀 開発・演習の始め方
+## 🚀 ケーススタディ
 
-### 前提条件
+### Konnectへのログイン、ゴールデンイメージの準備
 
-- Bash / Shell 実行環境
-- Kong / Konnect 環境（演習用）
-- Git
+#### Konnectへのログイン
+1. Konnectへのログインは「https://cloud.konghq.com」へアクセス
+#### ゴールデンイメージの準備
+1. Actionの「Kong image pull & Trivy scan」を実行する
+1. 必要に応じて以下のパラメータを設定する
+  - Docker image tag for kong/kong-gateway (e.g. 3.11 or latest)
+  - Deployment environment identifier (e.g., poc, dev, stg, prd)
+  - Service or application name associated with this Data Plane (e.g., bookinfo)  
+
 
 ### リポジトリクローン
 
