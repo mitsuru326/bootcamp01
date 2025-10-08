@@ -171,8 +171,10 @@ helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-comm
 ```
 5. Ingressに紐づいているグローバルIPアドレスをDNSのAレコードに登録する
 6. 以下にそれぞれアクセスできるようになる
+```
     Prometheus：http://prometheus.apipfdev.net/
     Grafana：http://grafana.apipfdev.net/
+```
 7. Grafanaは「values.yaml」でパスワードにadminを設定しており、初期ユーザはadminになるので、両方adminを指定すればログインできる
 
 ## Data Planeの起動、各作業のIaC化
