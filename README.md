@@ -63,23 +63,24 @@ TAG                #例）bookinfo
   - Docker image tag for kong/kong-gateway (e.g. 3.11 or latest)
   - Deployment environment identifier (e.g., poc, dev, stg, prd)
   - Service or application name associated with this Data Plane (e.g., bookinfo)
+3. Actionの「Publish image to GHCR (multi-arch mirror)」を実行する※「Kong image pull & Trivy scan」が正常終了すると自動起動する
 
   【処理概要】
   ```
     1. Docker Hubからベースイメージを取得する。
-    2.Trivyによる脆弱性スキャン(レベルCriticalおよびHighの検出)を実施する。
-    3.GitHubにイメージプッシュする。
+    2. Trivyによる脆弱性スキャン(レベルCriticalおよびHighの検出)を実施する。
+    3. GHCRにイメージプッシュする。
   ```
 
 ### 可観測性のためのサービスの準備（Prometheus、Grafana）
 #### Ingress Controller(Contour)の構築
-1.Contourをデプロイする
+1. Contourをデプロイする
 ```
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 kubectl get pods -n projectcontour -o wide
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml
 ```
-2.「ingressclass-contour.yaml」を作成する
+2. 「ingressclass-contour.yaml」を作成する
 ``` yaml:ingressclass-contour.yaml
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
@@ -88,7 +89,7 @@ metadata:
 spec:
   controller: projectcontour.io/ingress-controller
 ```
-3.Contourを更新する
+3. Contourを更新する
 ```
 kubectl apply -f ingressclass-contour.yaml
 ```
@@ -100,7 +101,7 @@ helm repo update
 ```
 2. values.yamlを作成する前に、Ingressで利用するドメインを環境変数に設定する
 ```
-DOMAIN=apipfdev.net
+DOMAIN=apipfdev.net  #既存のAzureのDNSゾーンを利用
 ```
 3. values.yamlを作成する。
 ```
@@ -168,23 +169,24 @@ EOF
 ```
 helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-community/kube-prometheus-stack -n prometheus-stack --create-namespace --wait
 ```
-6. 
-7. 
-8.  
+5. Ingressに紐づいているグローバルIPアドレスをDNSのAレコードに登録する
+6. 以下にそれぞれアクセスできるようになる
+    Prometheus：http://prometheus.apipfdev.net/
+    Grafana：http://grafana.apipfdev.net/
+7. Grafanaは「values.yaml」でパスワードにadminを設定しており、初期ユーザはadminになるので、両方adminを指定すればログインできる
 
+## Data Planeの起動、各作業のIaC化
+1. Actionの「Deploy GHCR image to AKS (reusable)」を実行する※「Publish image to GHCR (multi-arch mirror)」が正常終了すると自動起動する
 
-### 演習の実行例
+  【処理概要】
+  ```
+    1. Azureにログインする
+    2. 鍵と証明書作成する
+    3. Kong DPのyamlファイルを作成する
+    4. GHCRにプッシュしたイメージとyamlファイルを元にAKSにデプロイする
+  ```
+2. インフラのIaCは対象外なので、PrometheusとGrafanaはIaC化しない
 
-各ディレクトリ内のスクリプトを Shell で実行可能です：
-
-```bash
-# tests 配付のスクリプト実行例
-bash tests/sample-test.sh
-```
-
-Kong / Konnect 操作演習については、公式ドキュメントや各スクリプトのコメントを参照してください。
-
----
 
 ## 🛠 学習内容 / モジュール
 
