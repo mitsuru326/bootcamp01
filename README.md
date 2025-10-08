@@ -57,7 +57,7 @@ TAG                #例）bookinfo
 1. Konnectへのログインは「https://cloud.konghq.com」へアクセス
 #### ゴールデンイメージの準備
 1. Actionの「Kong image pull & Trivy scan」を実行する
-1. 必要に応じて以下のパラメータを設定する
+2. 必要に応じて以下のパラメータを設定する
   - Docker image tag for kong/kong-gateway (e.g. 3.11 or latest)
   - Deployment environment identifier (e.g., poc, dev, stg, prd)
   - Service or application name associated with this Data Plane (e.g., bookinfo)
@@ -67,13 +67,107 @@ TAG                #例）bookinfo
     2.Trivyによる脆弱性スキャン(レベルCriticalおよびHighの検出)を実施する。
     3.GitHubにイメージプッシュする。
 
-
-### リポジトリクローン
-
-```bash
-git clone https://github.com/mitsuru326/bootcamp01.git
-cd bootcamp01
+### 可観測性のためのサービスの準備（Prometheus、Grafana）
+#### Ingress Controller(Contour)の構築
+1.Contourをデプロイする
 ```
+kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
+kubectl get pods -n projectcontour -o wide
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml
+```
+2.「ingressclass-contour.yaml」を作成する
+``` yaml:ingressclass-contour.yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: contour
+spec:
+  controller: projectcontour.io/ingress-controller
+```
+3.Contourを更新する
+```
+kubectl apply -f ingressclass-contour.yaml
+```
+#### Prometheus/Grafanaの構築
+1. リポジトリを追加する
+```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+```
+2. values.yamlを作成する前に、Ingressで利用するドメインを環境変数に設定する
+```
+DOMAIN=apipfdev.net
+```
+3. values.yamlを作成する。
+```
+cat <<EOF > ./prometheus-stack-values.yaml
+alertmanager:
+  ingress:
+    enabled: true
+    ingressClassName: contour
+    annotations:
+      cert-manager.io/issuer: prometheus-stack-kube-prom-self-signed-issuer
+    hosts:
+    - alertmanager.$DOMAIN
+    tls:
+    - secretName: alertmanager-general-tls
+      hosts:
+      - alertmanager.$DOMAIN
+grafana:
+  adminPassword: admin
+  ingress:
+    enabled: true
+    ingressClassName: contour
+    annotations:
+      cert-manager.io/issuer: prometheus-stack-kube-prom-self-signed-issuer
+    hosts:
+    - grafana.$DOMAIN
+    tls:
+    - secretName: grafana-general-tls
+      hosts:
+      - grafana.$DOMAIN
+  persistence:
+    enabled: true
+    type: statefulset
+    accessModes:
+    - ReadWriteOnce
+    size: 20Gi
+    finalizers:
+    - kubernetes.io/pvc-protection
+prometheusOperator:
+  admissionWebhooks:
+    certManager:
+      enabled: true
+prometheus:
+  prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+  ingress:
+    enabled: true
+    ingressClassName: contour
+    annotations:
+      cert-manager.io/issuer: prometheus-stack-kube-prom-self-signed-issuer
+    hosts:
+    - prometheus.$DOMAIN
+    tls:
+    - secretName: prometheus-general-tls
+      hosts:
+      - prometheus.$DOMAIN
+EOF
+```
+4. デプロイする
+```
+helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-community/kube-prometheus-stack -n prometheus-stack --create-namespace --wait
+```
+6. 
+7. 
+8.  
+
 
 ### 演習の実行例
 
