@@ -8,13 +8,13 @@
 
 ## 前提
 
-### 環境
+  ### 環境
 ```
 Kubernetes：AKS
 コンテナレジストリ：ACR
 ワークフロー：GitHub Actions
 ```
-### GitHub Secretsの登録
+  ### GitHub Secretsの登録
 ```
 AZURE_CREDENTIALS
 DOCKERHUB_TOKEN
@@ -26,7 +26,7 @@ KONNECT_TOKEN
 REGISTRY_PASSWORD
 REGISTRY_USERNAME
 ```
-### GitHub Variablesの登録
+  ### GitHub Variablesの登録
 ```
 CONTROL_PLANE      #例）ota-test
 KONNECT_REGION     #例）us
@@ -53,11 +53,11 @@ TAG                #例）bookinfo
 
 ## 🚀 ケーススタディ
 
-### Konnectへのログイン、ゴールデンイメージの準備
+  ### Konnectへのログイン、ゴールデンイメージの準備
 
-#### Konnectへのログイン
+  #### Konnectへのログイン
 1. Konnectへのログインは「https://cloud.konghq.com」へアクセス
-#### ゴールデンイメージの準備
+  #### ゴールデンイメージの準備
 1. Actionの「Kong image pull & Trivy scan」を実行する
 2. 必要に応じて以下のパラメータを設定する
   - Docker image tag for kong/kong-gateway (e.g. 3.11 or latest)
