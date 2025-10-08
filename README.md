@@ -40,11 +40,11 @@ TAG                #例）bookinfo
 ```
 .
 ├── .github/workflows/   # GitHub Actions ワークフロー
-├── auditlog/            # Konnectの監査ログをLog Analyticsに保存するためのモジュール
 ├── docs/                # APIOpsドキュメント
 ├── kong-plugins/        # Kong プラグイン
 ├── konnect-dp/          # Konnect データプレーン構成のテンプレート※ワークフローでは使わない
 ├── tests/               # テストスクリプト
+├── trigger-auditlog/            # Konnectの監査ログをLog Analyticsに保存するためのモジュール
 ├── .spectral.yaml       # Lint / スタイルガイド設定
 └── README.md            # このファイル
 ```
@@ -201,7 +201,15 @@ serviceMonitor:
 2. 「http://prometheus.apipfdev.net/」にアクセスしてkongのメトリクスが表示されていることを確認する
 <img width="953" height="365" alt="image" src="https://github.com/user-attachments/assets/fe07af66-5bed-4697-8d99-d0b5e5fb91b6" />
 ### Konnectの監査ログ
-
+1. Log Analytics ワークスペースを任意の名前で作成する（必要に応じてSentinelを有効化する）
+2. 作成したLog Analytics ワークスペースのIDとキーを取得する
+3. 関数アプリ（Azure Functions）を任意の名前で作成する
+4. 当リポジトリにある「trigger-auditlog」を関数としてHTTPトリガーで登録する（VS Code等のローカルエディターで関数を作成してアップロードする必要がある）
+5. 「関数の URL を取得」からエンドポイントのURLを取得する（ファンクションキーの値を選ぶ）
+6. 「Konnectコンソール」→「Organization」→「Audit Logs Setup」→「Konnectタブ」にある「US - North America Endpoint」に取得したエンドポイントのURLを設定する
+7. 「US - North America Webhook」を有効にする
+8. Log Analytics ワークスペースで「KonnectAuditLog_CL」テーブルをクエリしてログ収集されていることを確認する。
+   <img width="839" height="412" alt="image" src="https://github.com/user-attachments/assets/a7337054-67b7-4c65-b3e5-54503c660a44" />
 
 ## APIOpsの実装
 
