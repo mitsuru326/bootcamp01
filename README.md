@@ -9,11 +9,13 @@
 ## 前提
 
 ### 環境
+```
 Kubernetes：AKS
 コンテナレジストリ：ACR
 ワークフロー：GitHub Actions
-
+```
 ### GitHub Secretsの登録
+```
 AZURE_CREDENTIALS
 DOCKERHUB_TOKEN
 DOCKERHUB_USERNAME
@@ -23,13 +25,14 @@ GHCR_USERNAME
 KONNECT_TOKEN
 REGISTRY_PASSWORD
 REGISTRY_USERNAME
-
+```
 ### GitHub Variablesの登録
+```
 CONTROL_PLANE      #例）ota-test
 KONNECT_REGION     #例）us
 PRODUCT_NAME       #例）bootcamp01_bookinfo
 TAG                #例）bookinfo
-
+```
 ---
 
 ## 📂 ディレクトリ構成
