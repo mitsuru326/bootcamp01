@@ -8,8 +8,8 @@ import requests
 from flask import Request
 
 # Azure Log Analytics Workspace情報
-WORKSPACE_ID = "517729f4-6ecd-49d4-9440-64e355ad5a8a"
-SHARED_KEY = "PV5jkEIH6K63VsrnG9Q2hfG98Ed23Aumr1E7FkLTHu5GR6/S0h8fHT7t5uzfgpbiOcry43thUNuTmIajMUycJg=="
+WORKSPACE_ID = ""
+SHARED_KEY = ""
 LOG_TYPE = "KonnectAuditLog"
 
 def build_signature(date, content_length):
