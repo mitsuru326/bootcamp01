@@ -8,7 +8,6 @@
 
 ## 前提
 
-```
 ### 環境
 Kubernetes：AKS
 コンテナレジストリ：ACR
