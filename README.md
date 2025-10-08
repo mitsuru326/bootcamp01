@@ -177,7 +177,7 @@ helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-comm
 ```
 7. Grafanaは「values.yaml」でパスワードにadminを設定しており、初期ユーザはadminになるので、両方adminを指定すればログインできる
 
-## Data Planeの起動、各作業のIaC化
+### Data Planeの起動、各作業のIaC化
 1. Actionの「Deploy GHCR image to AKS (reusable)」を実行する※「Publish image to GHCR (multi-arch mirror)」が正常終了すると自動起動する
 
   【処理概要】
@@ -189,8 +189,8 @@ helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-comm
   ```
 2. インフラのIaCは対象外なので、PrometheusとGrafanaはIaC化しない
 
-## 可観測性の実装（メトリクス、Konnectの監査ログ）
-### メトリクス
+### 可観測性の実装（メトリクス、Konnectの監査ログ）
+#### メトリクス
 1. Kong DPのyamlファイルで以下を設定しているため、メトリクスは取得できる状態になっている
 ```
 serviceMonitor:
@@ -202,7 +202,7 @@ serviceMonitor:
    
 <img width="953" height="365" alt="image" src="https://github.com/user-attachments/assets/fe07af66-5bed-4697-8d99-d0b5e5fb91b6" />
 
-### Konnectの監査ログ
+#### Konnectの監査ログ
 1. Log Analytics ワークスペースを任意の名前で作成する（必要に応じてSentinelを有効化する）
 2. 作成したLog Analytics ワークスペースのIDとキーを取得する
 3. 関数アプリ（Azure Functions）を任意の名前で作成する
@@ -213,12 +213,12 @@ serviceMonitor:
 8. Log Analytics ワークスペースで「KonnectAuditLog_CL」テーブルをクエリしてログ収集されていることを確認する。
    <img width="839" height="412" alt="image" src="https://github.com/user-attachments/assets/a7337054-67b7-4c65-b3e5-54503c660a44" />
 
-## APIOpsの実装
-### Bookinfoのデプロイ
+### APIOpsの実装
+#### Bookinfoのデプロイ
 1. アプリのリポジトリを取得する
-   ```
-   git clone https://github.com/imurata/bookinfo.git
-   ```
+```
+git clone https://github.com/imurata/bookinfo.git
+```
 2. Cloud ShellからACRにビルドするため、「build-services.sh」を以下に修正する
 ``` shell:build-services.sh
 #!/bin/bash
@@ -264,7 +264,7 @@ az acr repository list --name kongbootcamp01registry -o table
 ```
 kubectl apply -f bookinfo/platform/kube/bookinfo.yaml
 ```
-### Konnect Dev PortalのPortalsとAPIsの作成・更新
+#### Konnect Dev PortalのPortalsとAPIsの作成・更新
 1. Actionの「Create Dev Portal and APIs」を実行する
 2. 必要に応じて以下のパラメータを設定する
   - APIs Name
@@ -274,16 +274,26 @@ kubectl apply -f bookinfo/platform/kube/bookinfo.yaml
   - Team Role to add (Not Replace)
 3. Dev Portalで「Portals」と「APIs」が作成されていることを確認する
     
-### OASドキュメントの作成とサービス＆ルートの作成
+#### OASドキュメントの作成とサービス＆ルートの作成
 1. Actionの「Convert OpenAPI Spec to Kong and Deploy」を実行する
    または、docs/openapi/api-spec.yamlを更新する
 2. 「Dev Portal」→「APIs」→「API Specification」が作成されていることを確認する
 3. 「Gateway Services」と「Routes」が作成されていることを確認する
 
-### API Productドキュメントの作成・更新
+#### API Productドキュメントの作成・更新
 1. Actionの「Upload Document for API Product to Konnect / Dev Portal」を実行する
    または、docs/product.mdを更新する
 2. 「Dev Portal」→「APIs」→「Documentation」が作成されていることを確認する
+
+### 初期ユースケースの実装
+#### API(/api/v1)はAPIキーを持っている人のみ利用でき、流量制限を全体に適用（同一IPは直近30秒で100回を上限）
+#### CacheはGateway側で持たせたい
+#### Data Planeは他のサービスや本番、開発で分ける
+#### 性能を確認するためのダッシュボードが利用できる
+#### Kongの学習コストは最小限に抑えて開発に集中したい
+#### API Specをポータルで公開したい
+#### このServiceにのみポリシーを適用したい（GWが管理する他のServiceにはポリシーが適用されないようにしたい)
+
 
 ## 📞 作者
 
