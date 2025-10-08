@@ -44,7 +44,7 @@ TAG                #例）bookinfo
 ├── kong-plugins/        # Kong プラグイン
 ├── konnect-dp/          # Konnect データプレーン構成のテンプレート※ワークフローでは使わない
 ├── tests/               # テストスクリプト
-├── trigger-auditlog/            # Konnectの監査ログをLog Analyticsに保存するためのモジュール
+├── trigger-auditlog/    # Konnectの監査ログをLog Analyticsに保存するためのモジュール
 ├── .spectral.yaml       # Lint / スタイルガイド設定
 └── README.md            # このファイル
 ```
