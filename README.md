@@ -2,19 +2,19 @@
 
 ## 📌 概要
 
-`bootcamp01` は、ケーススタディにおけるTIS太田の解答例の資材をまとめたリポジトリである。
+`bootcamp01` は、kong-bootcampで行ったケーススタディにおけるTIS太田の解答例の資材をまとめたリポジトリである。
 
 ---
 
 ## 前提
 
-  ### 環境
+### 環境
 ```
 Kubernetes：AKS
 コンテナレジストリ：ACR
 ワークフロー：GitHub Actions
 ```
-  ### GitHub Secretsの登録
+### GitHub Secretsの登録
 ```
 AZURE_CREDENTIALS
 DOCKERHUB_TOKEN
@@ -26,7 +26,7 @@ KONNECT_TOKEN
 REGISTRY_PASSWORD
 REGISTRY_USERNAME
 ```
-  ### GitHub Variablesの登録
+### GitHub Variablesの登録
 ```
 CONTROL_PLANE      #例）ota-test
 KONNECT_REGION     #例）us
@@ -187,6 +187,21 @@ helm upgrade -i -f prometheus-stack-values.yaml prometheus-stack prometheus-comm
   ```
 2. インフラのIaCは対象外なので、PrometheusとGrafanaはIaC化しない
 
+## 可観測性の実装（メトリクス、Konnectの監査ログ）
+### メトリクス
+1. Kong DPのyamlファイルで以下を設定しているため、メトリクスは取得できる状態になっている
+```
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+```
+2. 「http://prometheus.apipfdev.net/」にアクセスしてkongのメトリクスが表示されていることを確認する
+<img width="953" height="365" alt="image" src="https://github.com/user-attachments/assets/fe07af66-5bed-4697-8d99-d0b5e5fb91b6" />
+### Konnectの監査ログ
+
+
+## APIOpsの実装
 
 ## 🛠 学習内容 / モジュール
 
