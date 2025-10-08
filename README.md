@@ -60,7 +60,12 @@ TAG                #例）bookinfo
 1. 必要に応じて以下のパラメータを設定する
   - Docker image tag for kong/kong-gateway (e.g. 3.11 or latest)
   - Deployment environment identifier (e.g., poc, dev, stg, prd)
-  - Service or application name associated with this Data Plane (e.g., bookinfo)  
+  - Service or application name associated with this Data Plane (e.g., bookinfo)
+
+  【処理概要】
+    1. Docker Hubからベースイメージを取得する。
+    2.Trivyによる脆弱性スキャン(レベルCriticalおよびHighの検出)を実施する。
+    3.GitHubにイメージプッシュする。
 
 
 ### リポジトリクローン
