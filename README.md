@@ -65,9 +65,11 @@ TAG                #例）bookinfo
   - Service or application name associated with this Data Plane (e.g., bookinfo)
 
   【処理概要】
+    ```
     1. Docker Hubからベースイメージを取得する。
     2.Trivyによる脆弱性スキャン(レベルCriticalおよびHighの検出)を実施する。
     3.GitHubにイメージプッシュする。
+    ```
 
 ### 可観測性のためのサービスの準備（Prometheus、Grafana）
 #### Ingress Controller(Contour)の構築
