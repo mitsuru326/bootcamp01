@@ -199,7 +199,9 @@ serviceMonitor:
     release: prometheus
 ```
 2. 「http://prometheus.apipfdev.net/」にアクセスしてkongのメトリクスが表示されていることを確認する
+   
 <img width="953" height="365" alt="image" src="https://github.com/user-attachments/assets/fe07af66-5bed-4697-8d99-d0b5e5fb91b6" />
+
 ### Konnectの監査ログ
 1. Log Analytics ワークスペースを任意の名前で作成する（必要に応じてSentinelを有効化する）
 2. 作成したLog Analytics ワークスペースのIDとキーを取得する
